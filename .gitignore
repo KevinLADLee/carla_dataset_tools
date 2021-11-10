@@ -1,0 +1,7 @@
+.idea
+.vscodews
+
+_out
+toy_code/_out
+__pycache__
+recorder/__pycache__
