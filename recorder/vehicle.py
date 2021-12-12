@@ -1,46 +1,42 @@
 #!/usr/bin/python3
+import copy
+import csv
+import os
 import carla
-from agents.navigation.behavior_agent import BehaviorAgent
-from queue import Queue
-from queue import Empty
-import weakref
+
+from .actor import Actor
 
 
-class VehicleAgent(BehaviorAgent):
-    def __init__(self, vehicle_actor: carla.Vehicle):
-        self.vehicle_actor = vehicle_actor
-        self.sensor_actor_list = []
-        self.queue = Queue()
-        BehaviorAgent.__init__(self, vehicle_actor, 'normal')
+class Vehicle(Actor):
+    def __init__(self,
+                 uid,
+                 name,
+                 base_save_dir: str,
+                 carla_actor: carla.Actor,
+                 parent_actor=None):
+        super().__init__(uid, name, carla_actor, None)
+        self.vehicle_type = copy.deepcopy(carla_actor.type_id)
+        self.save_dir = '{}/{}_{}'.format(base_save_dir, self.get_id(), self.vehicle_type)
+        self.first_tick = True
 
-    def destroy(self):
-        for s in self.sensor_actor_list:
-            s[1].destroy()
-        self.vehicle_actor.destroy()
+    def save_to_disk(self, frame_id):
+        os.makedirs(self.save_dir, exist_ok=True)
+        if self.first_tick:
+            self.save_vehicle_info()
 
-    def add_sensor(self, sensor_name, sensor_actor: carla.Sensor):
-        self.sensor_actor_list.append((sensor_name, sensor_actor))
-        sensor_type = sensor_actor.type_id
-        weak_self = weakref.ref(self)
-        sensor_actor.listen(lambda sensor_data: VehicleAgent.sensor_callback(weak_self, sensor_name, sensor_type, sensor_data, self.queue))
+        # Save vehicle status to csv file
+        # frame_id x, y, z, roll, pitch, yaw, vx, vy, vz, ax, ay, az
+        fieldnames = ['frame', 'x', 'y', 'z', 'roll', 'pitch', 'yaw', 'vx', 'vy', 'vz', 'ax', 'ay', 'az']
+        with open('{}/vehicle_status.csv'.format(self.save_dir), 'w', encoding='utf-8', newline='') as csv_file:
+            writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
+            if self.first_tick:
+                writer.writeheader()
+                self.first_tick = False
+            csv_line = {'frame': frame_id}
+            csv_line.update(self.get_transform().to_dict())
+            csv_line.update(self.get_acceleration().to_dict())
+            writer.writerow(csv_line)
 
-    @staticmethod
-    def sensor_callback(weal_self, sensor_name, sensor_type, sensor_data, sensor_queue):
-        sensor_queue.put((sensor_name, sensor_type, sensor_data))
-
-    def save_to_disk(self):
-        try:
-            for _ in range(len(self.sensor_actor_list)):
-                sensor_frame = self.queue.get(True, 1.0)
-                sensor_name = sensor_frame[0]
-                sensor_type = sensor_frame[1]
-                sensor_data = sensor_frame[2]
-                if sensor_type == 'sensor.camera.rgb':
-                    sensor_data.save_to_disk("_out/{}_{}.png".format(sensor_data.frame, sensor_name))
-                elif sensor_type == 'sensor.camera.semantic_segmentation':
-                    cc = carla.ColorConverter.CityScapesPalette
-                    sensor_data.save_to_disk("_out/seg/{}_{}.png".format(sensor_data.frame, sensor_name), cc)
-                print("saved: frame: {} sensor: {}".format(sensor_data.frame, sensor_name))
-        except Empty:
-            print("    Some of the sensor information is missed")
-
+    def save_vehicle_info(self):
+        # TODO: Save vehicle physics info here
+        pass

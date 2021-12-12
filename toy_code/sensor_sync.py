@@ -130,7 +130,6 @@ def main():
             except Empty:
                 print("    Some of the sensor information is missed")
 
-
     finally:
         world.apply_settings(original_settings)
         for sensor in sensor_list:

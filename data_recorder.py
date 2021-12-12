@@ -16,9 +16,10 @@ class DataRecorder:
         self.carla_client.set_timeout(2.0)
         self.world = self._get_world()
         self.status = True
-        self.setting_world()
+        # self.setting_world()
         self.actor_list = []
         self.vehicle_agent_list = []
+        self.debug_helper = self.world.debug
 
     def _get_world(self) -> carla.World:
         return self.carla_client.get_world()
@@ -67,6 +68,19 @@ class DataRecorder:
                                         attach_to=vehicle_actor)
         vehicle_agent.add_sensor("cam_seg", camera)
 
+        actor_list = self.world.get_actors()
+        tl_actor_list = []
+        for actor in actor_list:
+            if actor.type_id == 'traffic.traffic_light':
+                tl_actor_list.append(actor)
+                # try:
+                box_list = actor.get_light_boxes()
+                for box in box_list:
+                        self.debug_helper.draw_box(box, carla.Rotation(0,0,0))
+                # except AttributeError:
+                #     continue
+
+
 
     def save_data(self):
         for v in self.vehicle_agent_list:
@@ -76,6 +90,7 @@ class DataRecorder:
     def world_tick_thread(self):
         count = 0
         self.spawn_actors()
+        self.carla_client.start_recorder("/home/carla/recording01.log")
         while self.status:
             self.world.tick()
             count = count + 1
