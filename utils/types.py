@@ -26,10 +26,19 @@ class Vec3d(object):
     def __eq__(self, other):
         return numpy.array_equal(self.vec3d, other.vec3d)
 
+    def __ne__(self, other):
+        return not numpy.array_equal(self.vec3d, other.vec3d)
+
+    def __str__(self):
+        return "Vec3d(x={}, y={}, z={})".format(self.x, self.y, self.z)
+
 
 class Location(Vec3d):
     def __init__(self, x, y, z):
         super().__init__(x, y, z)
+
+    def __str__(self):
+        return "Location(x={}, y={}, z={})".format(self.x, self.y, self.z)
 
 
 class Rotation:
@@ -52,6 +61,12 @@ class Rotation:
 
     def __eq__(self, other):
         return numpy.array_equal(self.rotation_mat, other.rotation_mat)
+
+    def __ne__(self, other):
+        return not numpy.array_equal(self.rotation_mat, other.rotation_mat)
+
+    def __str__(self):
+        return "Rotation(pitch={}, yaw={}, roll={})".format(self.pitch, self.yaw, self.roll)
 
 
 class Transform:
@@ -77,11 +92,18 @@ class Transform:
 
     def transform(self, point: Location):
         t_vec = point.get_vector()
+        t_vec = numpy.concatenate((t_vec, [[1]]), axis=0)
         t_vec_out = numpy.dot(self.trans_mat, t_vec)
-        return Location(t_vec_out[0], t_vec_out[1], t_vec_out[2])
+        return Location(t_vec_out[0, 0], t_vec_out[1, 0], t_vec_out[2, 0])
 
     def __eq__(self, other):
         return (self.location == other.location) and (self.rotation == other.rotation)
+
+    def __ne__(self, other):
+        return (self.location != other.location) or (self.rotation != other.rotation)
+
+    def __str__(self):
+        return "Transform({}, {})".format(self.location, self.rotation)
 
 
 class Pose(Transform):

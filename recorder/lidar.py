@@ -7,16 +7,8 @@ from .sensor import Sensor
 
 
 class Lidar(Sensor):
-    def __init__(self, uid,
-                 name: str,
-                 base_save_dir: str,
-                 carla_actor: carla.Sensor,
-                 parent_actor: carla.Actor):
-        super().__init__(uid,
-                         name,
-                         base_save_dir,
-                         carla_actor,
-                         parent_actor)
+    def __init__(self, uid, name: str, base_save_dir: str, parent, carla_actor: carla.Sensor):
+        super().__init__(uid, name, base_save_dir, parent, carla_actor)
 
     def save_to_disk_impl(self, save_dir, sensor_data) -> bool:
         # Save as a Nx4 numpy array. Each row is a point (x, y, z, intensity)
@@ -31,16 +23,8 @@ class Lidar(Sensor):
 
 
 class SemanticLidar(Sensor):
-    def __init__(self, uid,
-                 name: str,
-                 base_save_dir: str,
-                 carla_actor: carla.Sensor,
-                 parent_actor: carla.Actor):
-        super().__init__(uid,
-                         name,
-                         base_save_dir,
-                         carla_actor,
-                         parent_actor)
+    def __init__(self, uid, name: str, base_save_dir: str, parent, carla_actor: carla.Sensor):
+        super().__init__(uid, name, base_save_dir, parent, carla_actor)
 
     def save_to_disk_impl(self, save_dir, sensor_data) -> bool:
         # Save data as a Nx6 numpy array.

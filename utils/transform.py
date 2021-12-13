@@ -46,16 +46,15 @@ def carla_rotation_to_RPY(carla_rotation):
 
     Considers the conversion from left-handed system (unreal) to right-handed
     system.
-    Considers the conversion from degrees (carla) to radians.
 
     :param carla_rotation: the carla rotation
     :type carla_rotation: carla.Rotation
     :return: a tuple with 3 elements (roll, pitch, yaw)
     :rtype: tuple
     """
-    roll = math.radians(carla_rotation.roll)
-    pitch = -math.radians(carla_rotation.pitch)
-    yaw = -math.radians(carla_rotation.yaw)
+    roll = carla_rotation.roll
+    pitch = -carla_rotation.pitch
+    yaw = -carla_rotation.yaw
 
     return (roll, pitch, yaw)
 
@@ -132,9 +131,9 @@ def RPY_to_carla_rotation(roll, pitch, yaw):
 
 
 def rotation_to_carla_rotation(rotation: Rotation):
-    return carla.Rotation(roll=math.degrees(rotation.roll),
-                          pitch=-math.degrees(rotation.pitch),
-                          yaw=-math.degrees(rotation.yaw))
+    return carla.Rotation(roll=rotation.roll,
+                          pitch=-rotation.pitch,
+                          yaw=-rotation.yaw)
 
 
 def location_to_carla_location(location: Location):

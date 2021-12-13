@@ -13,11 +13,11 @@ class Sensor(Actor):
                  uid,
                  name: str,
                  base_save_dir: str,
-                 carla_actor: carla.Sensor,
-                 parent_actor: carla.Actor):
-        super(Sensor, self).__init__(uid, name, carla_actor, parent_actor)
-        self.sensor_type = copy.deepcopy(carla_actor.type_id)
-        self.save_dir = base_save_dir + '/{}_{}'.format(self.get_id(), self.sensor_type)
+                 parent,
+                 carla_actor: carla.Sensor):
+        super(Sensor, self).__init__(uid=uid, name=name, parent=parent, carla_actor=carla_actor)
+        self.sensor_type = copy.deepcopy(self.get_type_id())
+        self.save_dir = base_save_dir + '/{}_{}'.format(self.get_uid(), self.sensor_type)
         self.queue = Queue()
         weak_self = weakref.ref(self)
         self.carla_actor.listen(lambda sensor_data: Sensor.data_callback(weak_self,

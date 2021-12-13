@@ -5,8 +5,9 @@ import time
 
 import cv2
 import random
-from recorder.vehicle import VehicleAgent
+import json
 
+from param import *
 
 class DataRecorder:
     def __init__(self, host, port):
@@ -16,30 +17,37 @@ class DataRecorder:
         self.carla_client.set_timeout(2.0)
         self.world = self._get_world()
         self.status = True
-        # self.setting_world()
         self.actor_list = []
         self.vehicle_agent_list = []
         self.debug_helper = self.world.debug
+        self.setting_world(ROOT_PATH / "config" / "world_config_template.json")
 
     def _get_world(self) -> carla.World:
         return self.carla_client.get_world()
 
     def destroy(self):
-        for v in self.vehicle_agent_list:
-            v.destroy()
+        self.reset_world_settings()
 
-    def setting_world(self):
+    def setting_world(self, json_file):
+        with open(json_file) as handle:
+            json_settings = json.loads(handle.read())
+            self.carla_client.load_world(json_settings["map"])
+            settings = self.world.get_settings()
+            settings.synchronous_mode = True
+
+            # Make sure fixed_delta_seconds <= max_substep_delta_time * max_substeps
+            world_settings = json_settings["world_settings"]
+            settings.fixed_delta_seconds = world_settings["fixed_delta_seconds"]
+            settings.substepping = True
+            settings.max_substep_delta_time = world_settings["max_substep_delta_time"]
+            settings.max_substeps = world_settings["max_substeps"]
+            self.world.apply_settings(settings)
+            print(self.world.get_settings())
+            time.sleep(1.0)
+
+    def reset_world_settings(self):
         settings = self.world.get_settings()
-        # settings = carla.WorldSettings
-
-        # Sync
-        settings.synchronous_mode = True
-        settings.fixed_delta_seconds = 0.05
-        settings.substepping = True
-        settings.max_substep_delta_time = 0.01
-        settings.max_substeps = 10
-        # Make sure fixed_delta_seconds <= max_substep_delta_time * max_substeps
-
+        settings.synchronous_mode = False
         self.world.apply_settings(settings)
 
     def spawn_actors(self):
@@ -89,7 +97,7 @@ class DataRecorder:
 
     def world_tick_thread(self):
         count = 0
-        self.spawn_actors()
+        # self.spawn_actors()
         self.carla_client.start_recorder("/home/carla/recording01.log")
         while self.status:
             self.world.tick()
@@ -121,7 +129,8 @@ def main():
         help='recorder duration (auto-stop)')
     args = argparser.parse_args()
     data_recorder = DataRecorder(args.host, args.port)
-    data_recorder.world_tick_thread()
+    # data_recorder.world_tick_thread()
+    data_recorder.destroy()
     return
 
 

@@ -12,10 +12,10 @@ class CameraBase(Sensor):
                  uid,
                  name: str,
                  base_save_dir: str,
+                 parent,
                  carla_actor: carla.Sensor,
-                 parent_actor: carla.Actor,
                  color_converter: carla.ColorConverter = None):
-        super().__init__(uid, name, base_save_dir, carla_actor, parent_actor)
+        super().__init__(uid, name, base_save_dir, parent, carla_actor)
         self.color_converter = color_converter
 
     def save_to_disk_impl(self, save_dir, sensor_data) -> bool:
@@ -38,44 +38,20 @@ class CameraBase(Sensor):
 
 
 class RgbCamera(CameraBase):
-    def __init__(self,
-                 uid,
-                 name: str,
-                 base_save_dir: str,
-                 carla_actor: carla.Sensor,
-                 parent_actor: carla.Actor,
+    def __init__(self, uid, name: str, base_save_dir: str, parent, carla_actor: carla.Sensor,
                  color_converter: carla.ColorConverter = None):
-        super().__init__(uid,
-                         name,
-                         base_save_dir,
-                         carla_actor,
-                         parent_actor,
-                         color_converter)
+        super().__init__(uid, name, base_save_dir, parent, carla_actor, color_converter)
 
 
 class SemanticSegmentationCamera(CameraBase):
-    def __init__(self,
-                 uid,
-                 name: str,
-                 base_save_dir: str,
-                 carla_actor: carla.Sensor,
-                 parent_actor: carla.Actor,
+    def __init__(self, uid, name: str, base_save_dir: str, parent, carla_actor: carla.Sensor,
                  color_converter: carla.ColorConverter = None):
         color_converter = carla.ColorConverter.CityScapesPalette
-        super().__init__(uid,
-                         name,
-                         base_save_dir,
-                         carla_actor,
-                         parent_actor,
-                         color_converter)
+        super().__init__(uid, name, base_save_dir, parent, carla_actor, color_converter)
 
 
 class DepthCamera(CameraBase):
-    def __init__(self, uid,
-                 name: str,
-                 base_save_dir: str,
-                 carla_actor: carla.Sensor,
-                 parent_actor: carla.Actor,
+    def __init__(self, uid, name: str, base_save_dir: str, parent, carla_actor: carla.Sensor,
                  color_converter: carla.ColorConverter = None):
         color_converter = carla.ColorConverter.Raw
-        super().__init__(uid, name, base_save_dir, carla_actor, parent_actor, color_converter)
+        super().__init__(uid, name, base_save_dir, parent, carla_actor, color_converter)

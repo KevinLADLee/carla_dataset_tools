@@ -19,6 +19,9 @@ class Vehicle(Actor):
         self.save_dir = '{}/{}_{}'.format(base_save_dir, self.get_id(), self.vehicle_type)
         self.first_tick = True
 
+    def get_save_dir(self):
+        return self.save_dir
+
     def save_to_disk(self, frame_id):
         os.makedirs(self.save_dir, exist_ok=True)
         if self.first_tick:
