@@ -10,13 +10,12 @@ from .actor import Actor
 class Vehicle(Actor):
     def __init__(self,
                  uid,
-                 name,
+                 name: str,
                  base_save_dir: str,
-                 carla_actor: carla.Actor,
-                 parent_actor=None):
-        super().__init__(uid, name, carla_actor, None)
+                 carla_actor: carla.Sensor):
+        super().__init__(uid=uid, name=name, parent=None, carla_actor=carla_actor)
         self.vehicle_type = copy.deepcopy(carla_actor.type_id)
-        self.save_dir = '{}/{}_{}'.format(base_save_dir, self.get_id(), self.vehicle_type)
+        self.save_dir = '{}/{}_{}'.format(base_save_dir, self.get_uid(), self.vehicle_type)
         self.first_tick = True
 
     def get_save_dir(self):

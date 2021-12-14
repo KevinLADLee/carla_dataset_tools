@@ -8,6 +8,9 @@ class PseudoActor(object):
         self.name = name
         self.parent = parent
 
+    def destroy(self):
+        return True
+
     def get_type_id(self):
         raise NotImplementedError
 
@@ -24,6 +27,12 @@ class Actor(PseudoActor):
                                     name=name,
                                     parent=parent)
         self.carla_actor = carla_actor
+
+    def destroy(self):
+        if self.carla_actor is not None:
+            if self.carla_actor.is_alive:
+                status = self.carla_actor.destroy()
+                return status
 
     def get_transform(self) -> Transform:
         trans = self.carla_actor.get_transform()
