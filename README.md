@@ -22,11 +22,13 @@ Data Recording
 python3 data_recorder.py
 ```
 
+All config files are under config folder.
+
 ## TODO
 
 - [x] Data recorder tool
-- [] Data labeling tool for KITTI format (object)
-- [] Documentation and Comments
+- [ ] Data labeling tool for KITTI format (object)
+- [ ] Documentation and Comments
 
 ## Acknowledgement
 
