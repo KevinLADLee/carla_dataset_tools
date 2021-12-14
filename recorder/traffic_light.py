@@ -1,10 +1,9 @@
 #!/usr/bin/python3
 import carla
+from recorder.actor import PseudoActor
 
-from queue import Queue
-from queue import Empty
 
-class TrafficLight:
-    def __init__(self):
-        get_light_boxes
-        pass
+class TrafficLight(PseudoActor):
+    def __init__(self, uid, name, parent):
+        super().__init__(uid, name, parent)
+        # TODO

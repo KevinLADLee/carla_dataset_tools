@@ -7,13 +7,14 @@ from utils.transform import *
 
 
 def main():
-    print("CarlaTypes: ")
+    print("---------------------------")
+    print("CarlaTypes (left-hand): ")
     carla_location = carla.Location(1, 2, 3)
     carla_rotation = carla.Rotation(30, 60, 90)
     carla_transform = carla.Transform(carla_location, carla_rotation)
     print("{}\n{}\n{}".format(carla_location, carla_rotation, carla_transform))
     print("---------------------------")
-    print("CustomTypes: ")
+    print("CustomTypes (right-hand): ")
     location = carla_location_to_location(carla_location)
     rotation = carla_rotation_to_rotation(carla_rotation)
     transform = carla_transform_to_transform(carla_transform)
@@ -28,12 +29,12 @@ def main():
           carla_rotation_1 == carla_rotation,
           carla_transform_1 == carla_transform)
 
-    carla_point = carla.Location(3, 2, 1)
-    carla_trans_point = carla_transform.transform(carla_point)
-    point = carla_location_to_location(carla_point)
-    trans_point = transform.transform(point)
-    print(trans_point,
-          carla_location_to_location(carla_trans_point))
+    # carla_point = carla.Location(3, 2, 1)
+    # carla_trans_point = carla_transform.transform(carla_point)
+    # point = carla_location_to_location(carla_point)
+    # trans_point = transform.transform(point)
+    # print(trans_point,
+    #       carla_location_to_location(carla_trans_point))
 
 
 if __name__ == "__main__":

@@ -5,7 +5,7 @@ from queue import Queue
 import weakref
 import os
 
-from .actor import Actor
+from recorder.actor import Actor
 
 
 class Sensor(Actor):
@@ -28,7 +28,7 @@ class Sensor(Actor):
     def data_callback(weak_self, sensor_data, data_queue: Queue):
         data_queue.put(sensor_data)
 
-    def save_to_disk(self, frame_id):
+    def save_to_disk(self, frame_id, debug=False):
         sensor_frame_id = 0
         while sensor_frame_id < frame_id:
             sensor_data = self.queue.get(True, 1.0)
@@ -42,9 +42,19 @@ class Sensor(Actor):
             os.makedirs(self.save_dir, exist_ok=True)
 
             success = self.save_to_disk_impl(self.save_dir, sensor_data)
+
             if not success:
                 print("Save to disk failed!")
                 raise IOError
 
+            if debug:
+                self.print_debug_info(sensor_data.frame, sensor_data)
+
     def save_to_disk_impl(self, save_dir, sensor_data) -> bool:
         raise NotImplementedError
+
+    def print_debug_info(self, data_frame_id, sensor_data):
+        print("\t\tFrame: {} uid={} data: {}".format(data_frame_id, self.uid, sensor_data))
+
+    def get_save_dir(self):
+        return self.save_dir

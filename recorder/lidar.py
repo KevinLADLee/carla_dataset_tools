@@ -3,7 +3,7 @@
 import carla
 import numpy as np
 
-from .sensor import Sensor
+from recorder.sensor import Sensor
 
 
 class Lidar(Sensor):

@@ -4,7 +4,7 @@ import csv
 import os
 import carla
 
-from .actor import Actor
+from recorder.actor import Actor
 
 
 class Vehicle(Actor):
@@ -17,28 +17,47 @@ class Vehicle(Actor):
         self.vehicle_type = copy.deepcopy(carla_actor.type_id)
         self.save_dir = '{}/{}_{}'.format(base_save_dir, self.get_uid(), self.vehicle_type)
         self.first_tick = True
+        # For vehicle control
+        self.auto_pilot = False
+        self.vehicle_agent = None
+        self.control_step()
 
     def get_save_dir(self):
         return self.save_dir
 
-    def save_to_disk(self, frame_id):
+    def save_to_disk(self, frame_id, debug=False):
         os.makedirs(self.save_dir, exist_ok=True)
+        fieldnames = ['frame', 'x', 'y', 'z', 'roll', 'pitch', 'yaw', 'speed', 'acceleration']
+
         if self.first_tick:
             self.save_vehicle_info()
+            with open('{}/vehicle_status.csv'.format(self.save_dir), 'w', encoding='utf-8') as csv_file:
+                writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
+                if self.first_tick:
+                    writer.writeheader()
+                    self.first_tick = False
 
         # Save vehicle status to csv file
-        # frame_id x, y, z, roll, pitch, yaw, vx, vy, vz, ax, ay, az
-        fieldnames = ['frame', 'x', 'y', 'z', 'roll', 'pitch', 'yaw', 'vx', 'vy', 'vz', 'ax', 'ay', 'az']
-        with open('{}/vehicle_status.csv'.format(self.save_dir), 'w', encoding='utf-8', newline='') as csv_file:
+        # frame_id x, y, z, roll, pitch, yaw, speed, acceleration
+        with open('{}/vehicle_status.csv'.format(self.save_dir), 'a', encoding='utf-8') as csv_file:
             writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
-            if self.first_tick:
-                writer.writeheader()
-                self.first_tick = False
-            csv_line = {'frame': frame_id}
+            csv_line = {'frame': frame_id,
+                        'acceleration': self.get_acceleration(),
+                        'speed': self.get_speed()}
             csv_line.update(self.get_transform().to_dict())
-            csv_line.update(self.get_acceleration().to_dict())
             writer.writerow(csv_line)
+
+        if debug:
+            print("\tVehicle status recorded: uid={} name={}".format(self.uid, self.name))
 
     def save_vehicle_info(self):
         # TODO: Save vehicle physics info here
         pass
+
+    def control_step(self):
+        # TODO: Migration with agents.behavior_agent
+        if not self.auto_pilot:
+            self.carla_actor.set_autopilot()
+            self.auto_pilot = True
+        else:
+            return

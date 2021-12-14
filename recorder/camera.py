@@ -4,7 +4,7 @@ import carla
 import cv2 as cv
 import numpy as np
 
-from .sensor import Sensor
+from recorder.sensor import Sensor
 
 
 class CameraBase(Sensor):

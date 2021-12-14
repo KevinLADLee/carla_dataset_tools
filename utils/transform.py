@@ -73,7 +73,7 @@ def carla_rotation_to_rotation(carla_rotation: carla.Rotation) -> Rotation:
     :rtype: numpy.array
     """
     roll, pitch, yaw = carla_rotation_to_RPY(carla_rotation)
-    return Rotation(roll, pitch, yaw)
+    return Rotation(roll=roll, pitch=pitch, yaw=yaw)
 
 
 def carla_transform_to_transform(carla_transform: carla.Transform):

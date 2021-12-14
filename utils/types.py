@@ -42,7 +42,7 @@ class Location(Vec3d):
 
 
 class Rotation:
-    def __init__(self, roll, pitch, yaw):
+    def __init__(self, pitch, yaw, roll):
         self.roll = roll
         self.pitch = pitch
         self.yaw = yaw
@@ -82,7 +82,8 @@ class Transform:
     def to_dict(self):
         location_dict = self.location.to_dict()
         rotation_dict = self.rotation.to_dict()
-        return location_dict.update(rotation_dict)
+        location_dict.update(rotation_dict)
+        return location_dict
 
     def get_matrix(self):
         return self.trans_mat

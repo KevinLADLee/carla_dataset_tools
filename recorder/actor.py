@@ -1,3 +1,4 @@
+#!/usr/bin/python3
 import carla
 from utils.transform import *
 
@@ -29,10 +30,17 @@ class Actor(PseudoActor):
         self.carla_actor = carla_actor
 
     def destroy(self):
+        print("Destroying: uid={} name={} carla_id={}".format(self.uid, self.name, self.carla_actor.id))
         if self.carla_actor is not None:
-            if self.carla_actor.is_alive:
+            try:
                 status = self.carla_actor.destroy()
+                # time.sleep(1)
+                if status:
+                    print("-> success")
                 return status
+            except RuntimeError:
+                print("-> failed")
+                return False
 
     def get_transform(self) -> Transform:
         trans = self.carla_actor.get_transform()
@@ -42,9 +50,17 @@ class Actor(PseudoActor):
         trans = transform_to_carla_transform(transform)
         self.carla_actor.set_transform(trans)
 
-    def get_acceleration(self) -> Vec3d:
+    def get_acceleration(self):
         acc = self.carla_actor.get_acceleration()
-        return carla_vec3d_to_vec3d(acc)
+        return math.sqrt(acc.x * acc.x
+                         + acc.y * acc.y
+                         + acc.z * acc.z)
+
+    def get_speed(self):
+        v = self.carla_actor.get_velocity()
+        return math.sqrt(v.x * v.x
+                         + v.y * v.y
+                         + v.z * v.z)
 
     def get_type_id(self):
         return self.carla_actor.type_id
