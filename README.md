@@ -17,12 +17,22 @@ export PYTHONPATH=$PYTHONPATH:$CARLA_ROOT/PythonAPI/carla/dist/[YOUR_CARLA_EGG_N
 
 ## QuickStart
 
-Data Recording
+### Data Recording
 ```
 python3 data_recorder.py
 ```
 
 All config files are under config folder.
+
+### Visualization
+
+For npy pointcloud rawdata, use util/visualize_lidar.py to visualize
+```bash
+# File mode
+python3 utils/visualize_lidar.py --type [lidaar / semantic_lidar / radar] --source raw_data/record_[date]/[uid]_[vehicle_type]/[uid]_[sensor_type].npy
+# Glob mode
+python3 utils/visualize_lidar.py --type [lidaar / semantic_lidar / radar] --source raw_data/record_[date]/[uid]_[vehicle_type]/[uid]_[sensor_type]
+```
 
 ## TODO
 
