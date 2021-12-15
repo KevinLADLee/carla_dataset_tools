@@ -14,7 +14,7 @@ import open3d as o3d
 
 sys.path.append(Path(__file__).parent.parent.as_posix())
 from param import ROOT_PATH
-from utils.semantic_helper import obj_tag_to_rgb_color
+from utils.semantic_helper import color_map
 
 
 class PointcloudType(Enum):
@@ -46,6 +46,7 @@ class LidarVisualizer:
                 vis.add_geometry(o3d_pcd)
                 vis.poll_events()
                 vis.update_renderer()
+                time.sleep(0.1)
             vis.destroy_window()
 
     def numpy_to_o3d(self, numpy_cloud):
@@ -60,7 +61,7 @@ class LidarVisualizer:
             pcd.colors = o3d.utility.Vector3dVector(numpy_cloud[:, 3:6])
             return pcd
         elif self.pointcloud_type == PointcloudType.SEMANTIC_LIDAR:
-            # TODO
+            # Read points
             x = numpy.asarray(numpy_cloud['x'], dtype=numpy.float32).reshape(-1, 1)
             y = numpy.asarray(numpy_cloud['y'], dtype=numpy.float32).reshape(-1, 1)
             z = numpy.asarray(numpy_cloud['z'], dtype=numpy.float32).reshape(-1, 1)
@@ -68,19 +69,13 @@ class LidarVisualizer:
             points.reshape(-1, 3)
             pcd.points = o3d.utility.Vector3dVector(points[:, 0:3].reshape(-1, 3))
 
-            rgb = numpy.asarray(numpy_cloud['ObjTag']).reshape(-1, 1)
-            rgb = rgb.astype(numpy.float64)
-            rgb = np.tile(rgb, 3)
-
-            # TODO: Horrible slow, need optimize
-            for rgb_row in rgb:
-                (rgb_row[0], rgb_row[1], rgb_row[2]) = obj_tag_to_rgb_color(rgb_row[0])
-            # print(rgb)
+            # Read semantic tags, mapping color
+            rgb = numpy.asarray(numpy_cloud['ObjTag'])
+            rgb = color_map[rgb] * 1.0 / 255.0
             pcd.colors = o3d.utility.Vector3dVector(rgb)
             return pcd
         elif self.pointcloud_type == PointcloudType.RADAR:
             pcd.points = o3d.utility.Vector3dVector(numpy_cloud[:, 0:3])
-            time.sleep(0.1)
             return pcd
         else:
             return pcd
