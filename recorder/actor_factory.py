@@ -12,6 +12,7 @@ from utils.transform import transform_to_carla_transform
 from recorder.actor import Actor, PseudoActor
 from recorder.camera import RgbCamera, DepthCamera, SemanticSegmentationCamera
 from recorder.lidar import Lidar, SemanticLidar
+from recorder.radar import Radar
 from recorder.vehicle import Vehicle
 
 
@@ -155,6 +156,15 @@ class ActorFactory(object):
                                          base_save_dir=parent_actor.get_save_dir(),
                                          carla_actor=carla_actor,
                                          parent=parent_actor)
+        elif sensor_type == 'sensor.other.radar':
+            sensor_actor = Radar(uid=self.get_uid_count(),
+                                 name=sensor_name,
+                                 base_save_dir=parent_actor.get_save_dir(),
+                                 carla_actor=carla_actor,
+                                 parent=parent_actor)
+        else:
+            print("Unsupported sensor type: {}".format(sensor_type))
+            raise AttributeError
         sensor_node = Node(sensor_actor, NodeType.SENSOR)
         self._uid_count += 1
         return sensor_node
@@ -163,4 +173,4 @@ class ActorFactory(object):
         return self._uid_count
 
     def create_spawn_point(self, x, y, z, roll, pitch, yaw):
-        return transform_to_carla_transform(Transform(Location(x, y, z), Rotation(roll, pitch, yaw)))
+        return transform_to_carla_transform(Transform(Location(x, y, z), Rotation(roll=roll, pitch=pitch, yaw=yaw)))

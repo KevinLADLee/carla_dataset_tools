@@ -14,6 +14,11 @@ class Lidar(Sensor):
         # Save as a Nx4 numpy array. Each row is a point (x, y, z, intensity)
         lidar_data = np.fromstring(bytes(sensor_data.raw_data),
                                    dtype=np.float32)
+        lidar_data = np.reshape(
+            lidar_data, (int(lidar_data.shape[0] / 4), 4))
+
+        # Convert point cloud to right-hand coordinate system
+        lidar_data[:, 1] *= -1
 
         # Save point cloud to [RAW_DATA_PATH]/.../[ID]_[SENSOR_TYPE]/[FRAME_ID].npy
         np.save("{}/{:0>10d}".format(save_dir,
@@ -37,6 +42,9 @@ class SemanticLidar(Sensor):
                                        ('ObjIdx', np.uint32),
                                        ('ObjTag', np.uint32)
                                    ]))
+
+        # Convert point cloud to right-hand coordinate system
+        lidar_data['y'] *= -1
 
         # Save point cloud to [RAW_DATA_PATH]/.../[ID]_[SENSOR_TYPE]/[FRAME_ID].npy
         np.save("{}/{:0>10d}".format(save_dir,

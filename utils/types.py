@@ -42,7 +42,7 @@ class Location(Vec3d):
 
 
 class Rotation:
-    def __init__(self, pitch, yaw, roll):
+    def __init__(self, *, pitch, yaw, roll):
         self.roll = roll
         self.pitch = pitch
         self.yaw = yaw
