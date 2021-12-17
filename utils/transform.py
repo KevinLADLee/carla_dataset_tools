@@ -146,10 +146,6 @@ def transform_to_carla_transform(transform: Transform):
     return carla.Transform(carla_location, carla_rotation)
 
 
-def pose_to_carla_transform(pose: Pose):
-    carla_location = location_to_carla_location(pose.location)
-    carla_rotation = rotation_to_carla_rotation(pose.rotation)
-    return carla.Transform(carla_location, carla_rotation)
 
 
 

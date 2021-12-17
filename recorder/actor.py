@@ -21,6 +21,9 @@ class PseudoActor(object):
     def get_save_dir(self):
         raise NotImplementedError
 
+    def get_uid(self):
+        return self.uid
+
 
 class Actor(PseudoActor):
     def __init__(self, uid, name, parent, carla_actor: carla.Actor):
@@ -64,9 +67,6 @@ class Actor(PseudoActor):
 
     def get_type_id(self):
         return self.carla_actor.type_id
-
-    def get_uid(self):
-        return self.uid
 
     def get_actor_id(self):
         return self.carla_actor.id

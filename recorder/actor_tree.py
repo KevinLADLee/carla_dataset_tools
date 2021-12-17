@@ -6,9 +6,7 @@ from recorder.actor_factory import ActorFactory, Node
 class ActorTree(object):
     def __init__(self, world: carla.World, actor_config_file=None, base_save_dir=None):
         self.world = world
-        self.map = self.world.get_map()
         self.actor_config_file = actor_config_file
-        self.spawn_points = self.map.get_spawn_points()
         self.actor_factory = ActorFactory(self.world, base_save_dir)
         self.root = Node(None)
 
@@ -25,7 +23,7 @@ class ActorTree(object):
         for v2i_layer_node in self.root.get_children():
             v2i_layer_node.tick_controller()
 
-    def tick_data_saving(self, frame_id, node=None):
+    def tick_data_saving(self, frame_id):
         for v2i_layer_node in self.root.get_children():
             v2i_layer_node.tick_data_saving(frame_id)
             for sensor_layer_node in v2i_layer_node.get_children():

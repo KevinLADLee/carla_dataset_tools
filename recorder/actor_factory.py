@@ -98,7 +98,16 @@ class ActorFactory(object):
         vehicle_type = actor_info["type"]
         vehicle_name = actor_info["name"]
         spawn_point = actor_info["spawn_point"]
-        transform = self.spawn_points[spawn_point]
+        if type(spawn_point) is int:
+            transform = self.spawn_points[spawn_point]
+        else:
+            transform = self.create_spawn_point(
+                spawn_point.pop("x", 0.0),
+                spawn_point.pop("y", 0.0),
+                spawn_point.pop("z", 0.0),
+                spawn_point.pop("roll", 0.0),
+                spawn_point.pop("pitch", 0.0),
+                spawn_point.pop("yaw", 0.0))
         blueprint = self.blueprint_lib.find(vehicle_type)
         carla_actor = self.world.spawn_actor(blueprint, transform)
         vehicle_object = Vehicle(uid=self.get_uid_count(),
