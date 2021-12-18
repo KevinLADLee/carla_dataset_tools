@@ -44,7 +44,7 @@ def main():
 
     p1 = trans_point
     p2 = carla_location_to_location(trans_point_c)
-    print(numpy.allclose(p1.get_vector(), p2.get_vector()))
+    print(p1 == p2)
 
 
 if __name__ == "__main__":

@@ -17,18 +17,18 @@ class Vector3d(object):
             self.z,
         ]], dtype=numpy.float32).reshape(3, 1)
 
-    def to_dict(self) -> dict:
-        return {'x': self.x,
-                'y': self.y,
-                'z': self.z}
+    def to_dict(self, prefix='') -> dict:
+        return {'{}x'.format(prefix): self.x,
+                '{}y'.format(prefix): self.y,
+                '{}z'.format(prefix): self.z}
 
     def __eq__(self, other):
-        return numpy.array_equal(self.get_vector(),
-                                 other.get_vector())
+        return numpy.allclose(self.get_vector(),
+                              other.get_vector())
 
     def __ne__(self, other):
-        return not numpy.array_equal(self.get_vector(),
-                                     other.get_vector())
+        return not numpy.allclose(self.get_vector(),
+                                  other.get_vector())
 
     def __str__(self):
         return "Vector3d(x={}, y={}, z={})".format(self.x, self.y, self.z)
@@ -59,14 +59,12 @@ class Rotation:
                 'yaw': self.yaw}
 
     def __eq__(self, other):
-        return (self.roll == other.roll) \
-               and (self.pitch == other.pitch) \
-               and (self.yaw == other.yaw)
+        return numpy.allclose(self.get_rotation_matrix(),
+                              other.get_rotation_matrix())
 
     def __ne__(self, other):
-        return (self.roll != other.roll) \
-               or (self.pitch != other.pitch) \
-               or (self.yaw != other.yaw)
+        return not numpy.allclose(self.get_rotation_matrix(),
+                                  other.get_rotation_matrix())
 
     def __str__(self):
         return "Rotation(pitch={}, yaw={}, roll={})".format(self.pitch, self.yaw, self.roll)
@@ -99,7 +97,6 @@ class Transform:
         trans_mat = self.get_matrix()
         p = numpy.concatenate((point.get_vector(), numpy.array([[1]])), axis=0)
         p = numpy.matmul(trans_mat, p, dtype=numpy.float)
-        numpy.set_printoptions(precision=8)
         return Location(p[0, 0], p[1, 0], p[2, 0])
 
     def __eq__(self, other):

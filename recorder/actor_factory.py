@@ -14,12 +14,14 @@ from recorder.camera import RgbCamera, DepthCamera, SemanticSegmentationCamera
 from recorder.lidar import Lidar, SemanticLidar
 from recorder.radar import Radar
 from recorder.vehicle import Vehicle
+from recorder.infrastructure import Infrastructure
 
 
 class NodeType(Enum):
     DEFAULT = 0
     VEHICLE = 1
-    SENSOR = 2
+    INFRASTRUCTURE = 2
+    SENSOR = 3
 
 
 class Node(object):
@@ -49,9 +51,10 @@ class Node(object):
             self._actor.control_step()
 
     # Depth-First-Search for data collection
-    def tick_data_saving(self, frame_id):
-        if self._node_type == NodeType.SENSOR or NodeType.VEHICLE:
-            self._actor.save_to_disk(frame_id, True)
+    def tick_data_saving(self, frame_id, world_snapshot: carla.WorldSnapshot):
+        if self._node_type == NodeType.SENSOR \
+                or NodeType.VEHICLE:
+            self._actor.save_to_disk(frame_id, world_snapshot, True)
 
 
 class ActorFactory(object):
@@ -78,9 +81,8 @@ class ActorFactory(object):
                 node = self.create_vehicle_node(actor_info)
                 root.add_child(node)
             elif actor_type.startswith("infrastructure"):
-                # TODO
-                continue
-                # node = None
+                node = self.create_infrastructure_node(actor_info)
+                root.add_child(node)
             if node is not None:
                 # If it has sensor setting, then create subtree
                 if actor_info["sensors_setting"] is not None:
@@ -89,7 +91,6 @@ class ActorFactory(object):
                         sensors_setting = json.loads(sensor_handle.read())
                         for sensor_info in sensors_setting["sensors"]:
                             sensor_node = self.create_sensor_node(sensor_info, node.get_actor())
-                            actor = sensor_node.get_actor()
                             node.add_child(sensor_node)
 
         return root
@@ -117,6 +118,27 @@ class ActorFactory(object):
         vehicle_node = Node(vehicle_object, NodeType.VEHICLE)
         self._uid_count += 1
         return vehicle_node
+
+    def create_infrastructure_node(self, actor_info):
+        infrastructure_name = actor_info["name"]
+        spawn_point = actor_info["spawn_point"]
+        if type(spawn_point) is int:
+            transform = self.spawn_points[spawn_point]
+        else:
+            transform = self.create_spawn_point(
+                spawn_point.pop("x", 0.0),
+                spawn_point.pop("y", 0.0),
+                spawn_point.pop("z", 0.0),
+                spawn_point.pop("roll", 0.0),
+                spawn_point.pop("pitch", 0.0),
+                spawn_point.pop("yaw", 0.0))
+        infrastructure_object = Infrastructure(uid=self.get_uid_count(),
+                                               name=infrastructure_name,
+                                               base_save_dir=self.base_save_dir,
+                                               transform=transform)
+        infrastructure_node = Node(infrastructure_object, NodeType.INFRASTRUCTURE)
+        self._uid_count += 1
+        return infrastructure_node
 
     def create_sensor_node(self, sensor_info: dict, parent_actor: PseudoActor):
         sensor_type = str(sensor_info.pop("type"))

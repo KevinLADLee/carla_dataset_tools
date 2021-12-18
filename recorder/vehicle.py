@@ -25,9 +25,21 @@ class Vehicle(Actor):
     def get_save_dir(self):
         return self.save_dir
 
-    def save_to_disk(self, frame_id, debug=False):
+    def get_carla_bbox(self):
+        return self.carla_actor.bounding_box
+
+    def get_carla_transform(self):
+        return self.carla_actor.get_transform()
+
+    def save_to_disk(self, frame_id, world_snapshot: carla.WorldSnapshot, debug=False):
         os.makedirs(self.save_dir, exist_ok=True)
-        fieldnames = ['frame', 'x', 'y', 'z', 'roll', 'pitch', 'yaw', 'speed', 'acceleration']
+        fieldnames = ['frame',
+                      'timestamp',
+                      'x', 'y', 'z',
+                      'roll', 'pitch', 'yaw',
+                      'speed',
+                      'vx', 'vy', 'vz',
+                      'ax', 'ay', 'az']
 
         if self.first_tick:
             self.save_vehicle_info()
@@ -42,8 +54,10 @@ class Vehicle(Actor):
         with open('{}/vehicle_status.csv'.format(self.save_dir), 'a', encoding='utf-8') as csv_file:
             writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
             csv_line = {'frame': frame_id,
-                        'acceleration': self.get_acceleration(),
+                        'timestamp': world_snapshot.timestamp.elapsed_seconds,
                         'speed': self.get_speed()}
+            csv_line.update(self.get_acceleration().to_dict(prefix='a'))
+            csv_line.update(self.get_velocity().to_dict(prefix='v'))
             csv_line.update(self.get_transform().to_dict())
             writer.writerow(csv_line)
 

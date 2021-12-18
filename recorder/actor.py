@@ -24,6 +24,9 @@ class PseudoActor(object):
     def get_uid(self):
         return self.uid
 
+    def save_to_disk(self, frame_id, world_snapshot: carla.WorldSnapshot, debug=False):
+        return
+
 
 class Actor(PseudoActor):
     def __init__(self, uid, name, parent, carla_actor: carla.Actor):
@@ -53,17 +56,27 @@ class Actor(PseudoActor):
         trans = transform_to_carla_transform(transform)
         self.carla_actor.set_transform(trans)
 
-    def get_acceleration(self):
+    def get_acceleration(self) -> Vector3d:
         acc = self.carla_actor.get_acceleration()
-        return math.sqrt(acc.x * acc.x
-                         + acc.y * acc.y
-                         + acc.z * acc.z)
+        return carla_vec3d_to_vec3d(acc)
+
+    def get_velocity(self) -> Vector3d:
+        """
+        Get actor velocity in Vector3D(vx, vy, vz). It it in Right-Hand coordinate.
+        :return: Vector3D(vx, vy, vz)
+        """
+        vel = self.carla_actor.get_velocity()
+        return carla_vec3d_to_vec3d(vel)
 
     def get_speed(self):
+        """
+        Get vehicle speed in km/h
+        :return: vehicle speed in km/h
+        """
         v = self.carla_actor.get_velocity()
-        return math.sqrt(v.x * v.x
-                         + v.y * v.y
-                         + v.z * v.z)
+        return 3.6 * math.sqrt(v.x * v.x
+                               + v.y * v.y
+                               + v.z * v.z)
 
     def get_type_id(self):
         return self.carla_actor.type_id

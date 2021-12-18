@@ -38,7 +38,6 @@ class DataRecorder:
     def destroy(self):
         self.actor_tree.destroy()
 
-
     def setting_world_and_actors(self, json_file):
         with open(json_file) as handle:
             json_settings = json.loads(handle.read())
@@ -81,10 +80,12 @@ class DataRecorder:
                 self.actor_tree.tick_controller()
                 # Tick World
                 frame_id = self.world.tick(seconds=60.0)
+                world_snapshot = self.world.get_snapshot()
+                timestamp = world_snapshot.timestamp
                 print("----------")
-                print("World Tick -> FrameID: {}".format(frame_id))
+                print("World Tick -> FrameID: {} Timestamp: {}".format(frame_id, timestamp))
                 # Save data to disk
-                self.actor_tree.tick_data_saving(frame_id)
+                self.actor_tree.tick_data_saving(frame_id, world_snapshot)
 
                 global sig_interrupt
                 if sig_interrupt:
@@ -120,10 +121,8 @@ def main():
         type=str,
         help='World configuration file')
     args = argparser.parse_args()
-    data_recorder = None
     data_recorder = DataRecorder(args)
     data_recorder.start_record()
-    return
 
 
 if __name__ == "__main__":

@@ -121,7 +121,7 @@ def carla_vec3d_to_numpy_vec(carla_vec3d: carla.Vector3D, left_to_right_hand=Tru
 
 
 def carla_vec3d_to_vec3d(carla_vec3d: carla.Vector3D):
-    return Vec3d(x=carla_vec3d.x, y=-carla_vec3d.y, z=carla_vec3d.z)
+    return Vector3d(x=carla_vec3d.x, y=-carla_vec3d.y, z=carla_vec3d.z)
 
 
 def RPY_to_carla_rotation(roll, pitch, yaw):
