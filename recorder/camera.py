@@ -1,9 +1,10 @@
 #!/usr/bin/python3
-
+import csv
 import carla
 import cv2 as cv
 import numpy as np
 import transforms3d
+import math
 
 from recorder.sensor import Sensor
 from utils.types import Transform, Rotation
@@ -37,7 +38,38 @@ class CameraBase(Sensor):
         success = cv.imwrite("{}/{:0>10d}.png".format(save_dir,
                                                       sensor_data.frame),
                              carla_image_data_array)
+
+        if success and self.is_first_frame():
+            self.save_camera_info(save_dir)
+
         return success
+
+    def save_camera_info(self, save_dir):
+        with open('{}/camera_info.csv'.format(save_dir), 'w', encoding='utf-8') as csv_file:
+            fieldnames = {'width',
+                          'height',
+                          'fx',
+                          'fy',
+                          'cx',
+                          'cy'}
+            writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
+            writer.writeheader()
+            camera_info = self.get_camera_info()
+            writer.writerow(camera_info)
+
+    def get_camera_info(self):
+        camera_width = int(self.carla_actor.attributes['image_size_x'])
+        camera_height = int(self.carla_actor.attributes['image_size_y'])
+        fx = camera_width / (
+                2.0 * math.tan(float(self.carla_actor.attributes['fov']) * math.pi / 360.0))
+        return {
+            'width': camera_width,
+            'height': camera_height,
+            'cx': camera_width / 2.0,
+            'cy': camera_height / 2.0,
+            'fx': fx,
+            'fy': fx
+        }
 
     def get_transform(self) -> Transform:
         c_trans = self.carla_actor.get_transform()
