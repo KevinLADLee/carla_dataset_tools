@@ -26,7 +26,7 @@ class Infrastructure(PseudoActor):
     def get_save_dir(self):
         return self.save_dir
 
-    def save_to_disk(self, frame_id, world_snapshot: carla.WorldSnapshot, debug=False):
+    def save_to_disk(self, frame_id, timestamp, debug=False):
         if debug:
             print("\tInfrastructure status recorded: uid={} name={}".format(self.uid, self.name))
 

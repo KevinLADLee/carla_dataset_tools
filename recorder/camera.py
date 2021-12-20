@@ -3,8 +3,11 @@
 import carla
 import cv2 as cv
 import numpy as np
+import transforms3d
 
 from recorder.sensor import Sensor
+from utils.types import Transform, Rotation
+from utils.transform import carla_transform_to_transform
 
 
 class CameraBase(Sensor):
@@ -35,6 +38,18 @@ class CameraBase(Sensor):
                                                       sensor_data.frame),
                              carla_image_data_array)
         return success
+
+    def get_transform(self) -> Transform:
+        c_trans = self.carla_actor.get_transform()
+        trans = carla_transform_to_transform(c_trans)
+        quat = transforms3d.quaternions.mat2quat(trans.rotation.get_rotation_matrix())
+        quat_swap = transforms3d.quaternions.mat2quat(np.matrix(
+                      [[0, 0, 1],
+                       [-1, 0, 0],
+                       [0, -1, 0]]))
+        quat_camera = transforms3d.quaternions.qmult(quat, quat_swap)
+        roll, pitch, yaw = transforms3d.euler.quat2euler(quat_camera)
+        return Transform(trans.location, Rotation(roll=roll, pitch=pitch, yaw=yaw))
 
 
 class RgbCamera(CameraBase):

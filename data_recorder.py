@@ -81,11 +81,11 @@ class DataRecorder:
                 # Tick World
                 frame_id = self.world.tick(seconds=60.0)
                 world_snapshot = self.world.get_snapshot()
-                timestamp = world_snapshot.timestamp
+                timestamp = world_snapshot.timestamp.elapsed_seconds
                 print("----------")
                 print("World Tick -> FrameID: {} Timestamp: {}".format(frame_id, timestamp))
                 # Save data to disk
-                self.actor_tree.tick_data_saving(frame_id, world_snapshot)
+                self.actor_tree.tick_data_saving(frame_id, timestamp)
 
                 global sig_interrupt
                 if sig_interrupt:

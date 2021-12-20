@@ -17,7 +17,7 @@
             "type": "infrastructure",
             "name": "tl_infra_01",
             "sensors_setting": "sensor_config_simple.json",
-            "spawn_point": 1
+            "spawn_point": {"x": 190.35, "y": -297.3522, "z": 16.83}
         }
     ]
 }

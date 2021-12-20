@@ -12,10 +12,9 @@ def show_spawn_points(world: carla.World, debug_helper: carla.DebugHelper):
     for i in range(len(spawn_points)):
         carla_location = spawn_points[i].location
         debug_helper.draw_string(carla.Location(carla_location.x,
-                                                carla_location.y,
+                                                carla_location.y + 1.0,
                                                 carla_location.z + 1.0),
-                                 "SpawnPoint-{}".format(i),
-                                 life_time=0)
+                                 "SpawnPoint-{}".format(i))
         bbox = carla.BoundingBox(spawn_points[i].location, carla.Vector3D(0.1, 0.1, 0.1))
         debug_helper.draw_box(bbox,
                               rotation=carla.Rotation())
@@ -29,11 +28,10 @@ def show_spawn_points(world: carla.World, debug_helper: carla.DebugHelper):
                                                     0.5,
                                                     0.1))
             debug_helper.draw_string(carla.Location(carla_location.x,
-                                                    carla_location.y,
+                                                    carla_location.y + 1.0,
                                                     carla_location.z + 1.0),
                                      "TrafficLight-{}".format(cid),
-                                     color=carla.Color(0, 255, 0),
-                                     life_time=0)
+                                     color=carla.Color(0, 255, 0))
             debug_helper.draw_box(bbox,
                                   rotation=carla_rotation,
                                   color=carla.Color(0, 255, 0))

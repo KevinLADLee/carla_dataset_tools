@@ -24,8 +24,11 @@ class PseudoActor(object):
     def get_uid(self):
         return self.uid
 
-    def save_to_disk(self, frame_id, world_snapshot: carla.WorldSnapshot, debug=False):
+    def save_to_disk(self, frame_id, timestamp, debug=False):
         return
+
+    def get_carla_transform(self) -> carla.Transform:
+        raise NotImplementedError
 
 
 class Actor(PseudoActor):
@@ -89,6 +92,9 @@ class Actor(PseudoActor):
 
     def get_save_dir(self):
         raise NotImplementedError
+
+    def get_carla_transform(self):
+        return self.carla_actor.get_transform()
 
 
 

@@ -1,9 +1,11 @@
 #!/usr/bin/python3
 import copy
-import carla
-from queue import Queue
-import weakref
+import csv
 import os
+import weakref
+from queue import Queue
+
+import carla
 
 from recorder.actor import Actor
 
@@ -24,11 +26,17 @@ class Sensor(Actor):
                                                                          sensor_data,
                                                                          self.queue))
 
+        self.csv_fieldnames = ['frame',
+                               'timestamp',
+                               'x', 'y', 'z',
+                               'roll', 'pitch', 'yaw']
+        self._first_frame = True
+
     @staticmethod
     def data_callback(weak_self, sensor_data, data_queue: Queue):
         data_queue.put(sensor_data)
 
-    def save_to_disk(self, frame_id, world_snapshot: carla.WorldSnapshot,  debug=False):
+    def save_to_disk(self, frame_id, timestamp,  debug=False):
         sensor_frame_id = 0
         while sensor_frame_id < frame_id:
             sensor_data = self.queue.get(True, 1.0)
@@ -47,6 +55,9 @@ class Sensor(Actor):
                 print("Save to disk failed!")
                 raise IOError
 
+            self.save_pose(frame_id, timestamp)
+            self._first_frame = False
+
             if debug:
                 self.print_debug_info(sensor_data.frame, sensor_data)
 
@@ -58,3 +69,22 @@ class Sensor(Actor):
 
     def get_save_dir(self):
         return self.save_dir
+
+    def is_first_frame(self):
+        return self._first_frame
+
+    def save_pose(self, frame_id, timestamp):
+        trans = self.get_transform()
+        pose_dict = trans.to_dict()
+        pose_dict.update({'frame': frame_id,
+                          'timestamp': timestamp})
+
+        csv_path = '{}/poses.csv'.format(self.save_dir)
+        if self.is_first_frame():
+            with open(csv_path, 'w', encoding='utf-8') as csv_file:
+                writer = csv.DictWriter(csv_file, fieldnames=self.csv_fieldnames)
+                writer.writeheader()
+
+        with open(csv_path, 'a', encoding='utf-8') as csv_file:
+            writer = csv.DictWriter(csv_file, fieldnames=self.csv_fieldnames)
+            writer.writerow(pose_dict)

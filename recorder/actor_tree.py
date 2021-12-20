@@ -23,11 +23,11 @@ class ActorTree(object):
         for v2i_layer_node in self.root.get_children():
             v2i_layer_node.tick_controller()
 
-    def tick_data_saving(self, frame_id, world_snapshot: carla.WorldSnapshot):
+    def tick_data_saving(self, frame_id, timestamp: float):
         for v2i_layer_node in self.root.get_children():
-            v2i_layer_node.tick_data_saving(frame_id, world_snapshot)
+            v2i_layer_node.tick_data_saving(frame_id, timestamp)
             for sensor_layer_node in v2i_layer_node.get_children():
-                sensor_layer_node.tick_data_saving(frame_id, world_snapshot)
+                sensor_layer_node.tick_data_saving(frame_id, timestamp)
 
     def print_tree(self):
         print("------ Actor Tree BEGIN ------")

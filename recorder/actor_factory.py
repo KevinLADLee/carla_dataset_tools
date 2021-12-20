@@ -51,10 +51,10 @@ class Node(object):
             self._actor.control_step()
 
     # Depth-First-Search for data collection
-    def tick_data_saving(self, frame_id, world_snapshot: carla.WorldSnapshot):
+    def tick_data_saving(self, frame_id, timestamp):
         if self._node_type == NodeType.SENSOR \
                 or NodeType.VEHICLE:
-            self._actor.save_to_disk(frame_id, world_snapshot, True)
+            self._actor.save_to_disk(frame_id, timestamp, True)
 
 
 class ActorFactory(object):
@@ -129,9 +129,10 @@ class ActorFactory(object):
                 spawn_point.pop("x", 0.0),
                 spawn_point.pop("y", 0.0),
                 spawn_point.pop("z", 0.0),
-                spawn_point.pop("roll", 0.0),
-                spawn_point.pop("pitch", 0.0),
-                spawn_point.pop("yaw", 0.0))
+                0,
+                0,
+                0,
+            )
         infrastructure_object = Infrastructure(uid=self.get_uid_count(),
                                                name=infrastructure_name,
                                                base_save_dir=self.base_save_dir,
@@ -154,7 +155,12 @@ class ActorFactory(object):
         blueprint = self.blueprint_lib.find(sensor_type)
         for attribute, value in sensor_info.items():
             blueprint.set_attribute(attribute, str(value))
-        carla_actor = self.world.spawn_actor(blueprint, sensor_transform, parent_actor.get_carla_actor())
+        if parent_actor.get_carla_actor() is not None:
+            carla_actor = self.world.spawn_actor(blueprint, sensor_transform, parent_actor.get_carla_actor())
+        else:
+            sensor_location = parent_actor.get_carla_transform().transform(sensor_transform.location)
+            sensor_transform = carla.Transform(sensor_location, sensor_transform.rotation)
+            carla_actor = self.world.spawn_actor(blueprint, sensor_transform)
 
         sensor_actor = None
         if sensor_type == 'sensor.camera.rgb':

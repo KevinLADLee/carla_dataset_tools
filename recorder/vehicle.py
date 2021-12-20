@@ -31,7 +31,7 @@ class Vehicle(Actor):
     def get_carla_transform(self):
         return self.carla_actor.get_transform()
 
-    def save_to_disk(self, frame_id, world_snapshot: carla.WorldSnapshot, debug=False):
+    def save_to_disk(self, frame_id, timestamp, debug=False):
         os.makedirs(self.save_dir, exist_ok=True)
         fieldnames = ['frame',
                       'timestamp',
@@ -54,7 +54,7 @@ class Vehicle(Actor):
         with open('{}/vehicle_status.csv'.format(self.save_dir), 'a', encoding='utf-8') as csv_file:
             writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
             csv_line = {'frame': frame_id,
-                        'timestamp': world_snapshot.timestamp.elapsed_seconds,
+                        'timestamp': timestamp,
                         'speed': self.get_speed()}
             csv_line.update(self.get_acceleration().to_dict(prefix='a'))
             csv_line.update(self.get_velocity().to_dict(prefix='v'))
