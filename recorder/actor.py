@@ -39,16 +39,16 @@ class Actor(PseudoActor):
         self.carla_actor = carla_actor
 
     def destroy(self):
-        print("Destroying: uid={} name={} carla_id={}".format(self.uid, self.name, self.carla_actor.id))
+        # print("Destroying: uid={} name={} carla_id={}".format(self.uid, self.name, self.carla_actor.id))
         if self.carla_actor is not None:
             try:
                 status = self.carla_actor.destroy()
                 # time.sleep(1)
-                if status:
-                    print("-> success")
+                # if status:
+                #     print("-> success")
                 return status
             except RuntimeError:
-                print("-> failed")
+                # print("-> failed")
                 return False
 
     def get_transform(self) -> Transform:

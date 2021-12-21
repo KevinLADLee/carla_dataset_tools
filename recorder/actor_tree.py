@@ -24,6 +24,7 @@ class ActorTree(object):
             v2i_layer_node.tick_controller()
 
     def tick_data_saving(self, frame_id, timestamp: float):
+        self.root.tick_data_saving(frame_id, timestamp)
         for v2i_layer_node in self.root.get_children():
             v2i_layer_node.tick_data_saving(frame_id, timestamp)
             for sensor_layer_node in v2i_layer_node.get_children():

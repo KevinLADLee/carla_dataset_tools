@@ -6,7 +6,7 @@ from enum import Enum
 import carla
 
 from param import RAW_DATA_PATH, ROOT_PATH
-from utils.types import *
+from utils.geometry_types import *
 from utils.transform import transform_to_carla_transform
 
 from recorder.actor import Actor, PseudoActor
@@ -15,13 +15,15 @@ from recorder.lidar import Lidar, SemanticLidar
 from recorder.radar import Radar
 from recorder.vehicle import Vehicle
 from recorder.infrastructure import Infrastructure
+from recorder.world import WorldActor
 
 
 class NodeType(Enum):
     DEFAULT = 0
-    VEHICLE = 1
-    INFRASTRUCTURE = 2
-    SENSOR = 3
+    WORLD = 1
+    VEHICLE = 2
+    INFRASTRUCTURE = 3
+    SENSOR = 4
 
 
 class Node(object):
@@ -53,7 +55,8 @@ class Node(object):
     # Depth-First-Search for data collection
     def tick_data_saving(self, frame_id, timestamp):
         if self._node_type == NodeType.SENSOR \
-                or NodeType.VEHICLE:
+                or NodeType.VEHICLE\
+                or NodeType.WORLD:
             self._actor.save_to_disk(frame_id, timestamp, True)
 
 
@@ -73,7 +76,7 @@ class ActorFactory(object):
         with open(actor_config_file) as handle:
             json_actors = json.loads(handle.read())
 
-        root = Node()
+        root = self.create_world_node()
         for actor_info in json_actors["actors"]:
             actor_type = str(actor_info["type"])
             node = Node()
@@ -94,6 +97,14 @@ class ActorFactory(object):
                             node.add_child(sensor_node)
 
         return root
+
+    def create_world_node(self):
+        world_actor = WorldActor(uid=self._uid_count,
+                                 carla_world=self.world,
+                                 base_save_dir=self.base_save_dir)
+        self._uid_count += 1
+        world_node = Node(world_actor, NodeType.WORLD)
+        return world_node
 
     def create_vehicle_node(self, actor_info):
         vehicle_type = actor_info["type"]

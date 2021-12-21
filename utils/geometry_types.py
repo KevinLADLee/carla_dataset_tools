@@ -2,6 +2,7 @@
 import math
 import numpy
 import transforms3d as tf3d
+import open3d as o3d
 
 
 class Vector3d(object):
@@ -21,6 +22,9 @@ class Vector3d(object):
         return {'{}x'.format(prefix): self.x,
                 '{}y'.format(prefix): self.y,
                 '{}z'.format(prefix): self.z}
+
+    def to_str(self, name='Vector3d'):
+        return "{}(x={}, y={}, z={})".format(name, self.x, self.y, self.z)
 
     def __eq__(self, other):
         return numpy.allclose(self.get_vector(),
@@ -109,3 +113,19 @@ class Transform:
 
     def __str__(self):
         return "Transform({}, {})".format(self.location, self.rotation)
+
+
+class BoundingBox:
+    def __init__(self, location: Location, extent: Vector3d, rotation=Rotation()):
+        self.location = location
+        self.extent = extent
+        self.rotation = rotation
+
+    def to_open3d(self):
+        center = self.location.get_vector()
+        rotation = self.rotation.get_rotation_matrix()
+        extent = self.extent.get_vector()
+        return o3d.geometry.OrientedBoundingBox(center, rotation, extent)
+
+    def __str__(self):
+        return "BoundingBox({}, {})".format(self.location, self.extent.to_str(name="Extent"), self.rotation)

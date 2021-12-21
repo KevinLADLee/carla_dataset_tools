@@ -76,16 +76,21 @@ class DataRecorder:
         self.carla_client.start_recorder(carla_logfile)
         try:
             while True:
+                print("----------")
                 # Tick Control
                 self.actor_tree.tick_controller()
                 # Tick World
+                tick_s = time.time()
                 frame_id = self.world.tick(seconds=60.0)
                 world_snapshot = self.world.get_snapshot()
                 timestamp = world_snapshot.timestamp.elapsed_seconds
-                print("----------")
-                print("World Tick -> FrameID: {} Timestamp: {}".format(frame_id, timestamp))
+                print("World Tick -> FrameID: {} Timestamp: {} Cost: {:.3f}s".format(frame_id,
+                                                                                     timestamp,
+                                                                                     time.time()-tick_s))
                 # Save data to disk
+                save_s = time.time()
                 self.actor_tree.tick_data_saving(frame_id, timestamp)
+                print("Raw data saved, cost {:.3f}s".format(time.time()-save_s))
 
                 global sig_interrupt
                 if sig_interrupt:
