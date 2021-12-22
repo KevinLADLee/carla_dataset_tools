@@ -1,6 +1,6 @@
 {
-    "map": "Town02",
-    "spectator_pose": {"x": 100, "y": -150.0, "z": 150, "roll": 0, "pitch": 60.0, "yaw": -90.0},
+    "map": "Town03",
+    "spectator_pose": {"x": 0.5, "y": 97.0, "z": 50.18, "roll": 0, "pitch": 42.0, "yaw": 90.0},
     "world_settings":
     {
         "fixed_delta_seconds": 0.1,
