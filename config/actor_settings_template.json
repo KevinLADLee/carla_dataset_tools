@@ -5,19 +5,19 @@
             "type": "vehicle.tesla.model3",
             "name": "vehicle_master",
             "sensors_setting": "sensor_config_template.json",
-            "spawn_point": 10
+            "spawn_point": 73
         },
         {
             "type": "vehicle.audi.etron",
             "name": "vehicle_simpler",
             "sensors_setting": "sensor_config_simple.json",
-            "spawn_point": 33
+            "spawn_point": 76
         },
         {
             "type": "infrastructure",
             "name": "tl_infra_01",
             "sensors_setting": "sensor_config_simple.json",
-            "spawn_point": {"x": 190.35, "y": -297.3522, "z": 16.83}
+            "spawn_point": {"x": 40, "y": -240, "z": 4.0}
         }
     ]
 }

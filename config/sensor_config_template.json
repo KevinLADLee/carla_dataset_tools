@@ -5,16 +5,24 @@
             "type": "sensor.camera.rgb",
             "name": "rgb_front",
             "spawn_point": {"x": 2.0, "y": 0.0, "z": 2.0, "roll": 0.0, "pitch": 0.0, "yaw": 0.0},
-            "image_size_x": 800,
-            "image_size_y": 600,
+            "image_size_x": 1280,
+            "image_size_y": 720,
             "fov": 90.0
         },
         {
-            "type": "sensor.camera.rgb",
-            "name": "rgb_view",
-            "spawn_point": {"x": -4.5, "y": 0.0, "z": 2.8, "roll": 0.0, "pitch": 20.0, "yaw": 0.0},
-            "image_size_x": 800,
-            "image_size_y": 600,
+            "type": "sensor.camera.semantic_segmentation",
+            "name": "semantic_front",
+            "spawn_point": {"x": 2.0, "y": 0.0, "z": 2.0, "roll": 0.0, "pitch": 0.0, "yaw": 0.0},
+            "image_size_x": 1280,
+            "image_size_y": 720,
+            "fov": 90.0
+        },
+        {
+            "type": "sensor.camera.depth",
+            "name": "depth_front",
+            "spawn_point": {"x": 2.0, "y": 0.0, "z": 2.0, "roll": 0.0, "pitch": 0.0, "yaw": 0.0},
+            "image_size_x": 1280,
+            "image_size_y": 720,
             "fov": 90.0
         },
         {
@@ -22,8 +30,8 @@
             "name": "lidar",
             "spawn_point": {"x": 0.0, "y": 0.0, "z": 2.4, "roll": 0.0, "pitch": 0.0, "yaw": 0.0},
             "range": 50,
-            "channels": 32,
-            "points_per_second": 320000,
+            "channels": 64,
+            "points_per_second": 1280000,
             "upper_fov": 2.0,
             "lower_fov": -26.8,
             "rotation_frequency": 20,
@@ -34,27 +42,11 @@
             "name": "semantic_lidar",
             "spawn_point": {"x": 0.0, "y": 0.0, "z": 2.4, "roll": 0.0, "pitch": 0.0, "yaw": 0.0},
             "range": 50,
-            "channels": 32,
-            "points_per_second": 320000,
+            "channels": 64,
+            "points_per_second": 1280000,
             "upper_fov": 2.0,
             "lower_fov": -26.8,
             "rotation_frequency": 20
-        },
-        {
-            "type": "sensor.camera.semantic_segmentation",
-            "name": "semantic_segmentation_front",
-            "spawn_point": {"x": 2.0, "y": 0.0, "z": 2.0, "roll": 0.0, "pitch": 0.0, "yaw": 0.0},
-            "fov": 90.0,
-            "image_size_x": 400,
-            "image_size_y": 70
-        },
-        {
-            "type": "sensor.camera.depth",
-            "name": "depth_front",
-            "spawn_point": {"x": 2.0, "y": 0.0, "z": 2.0, "roll": 0.0, "pitch": 0.0, "yaw": 0.0},
-            "fov": 90.0,
-            "image_size_x": 400,
-            "image_size_y": 70
         },
         {
             "type": "sensor.other.radar",

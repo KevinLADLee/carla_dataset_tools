@@ -1,12 +1,10 @@
 import argparse
 import pickle
-from pathlib import Path
 import sys
+from pathlib import Path
+
 sys.path.append(Path(__file__).parent.parent.as_posix())
-from recorder.actor_tree import ActorTree
 from param import *
-from utils.label_types import ObjectLabel
-from utils.transform import *
 
 
 def main():

@@ -1,10 +1,8 @@
 #!/usr/bin/python3
 
-import carla
 from dataclasses import dataclass
-
 from utils.geometry_types import *
-from utils.transform import carla_transform_to_transform
+
 
 @dataclass
 class ObjectLabel(object):
