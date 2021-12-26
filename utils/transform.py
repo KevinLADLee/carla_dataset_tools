@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 
 import carla
+import open3d as o3d
 from utils.geometry_types import *
 
 
@@ -155,4 +156,8 @@ def carla_bbox_to_bbox(carla_bbox: carla.BoundingBox):
     return BoundingBox(location, extent, rotation)
 
 
-
+def bbox_to_o3d_bbox(bbox: BoundingBox):
+    center = bbox.location.get_vector()
+    rotation = bbox.rotation.get_rotation_matrix()
+    extent = 2.0 * bbox.extent.get_vector()
+    return o3d.geometry.OrientedBoundingBox(center, rotation, extent)

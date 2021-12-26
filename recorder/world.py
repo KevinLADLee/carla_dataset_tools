@@ -6,7 +6,7 @@ from dataclasses import dataclass
 
 from recorder.actor import PseudoActor
 from utils.label_types import *
-from utils.transform import carla_bbox_to_bbox
+from utils.transform import carla_bbox_to_bbox, carla_transform_to_transform
 
 
 class WorldActor(PseudoActor):

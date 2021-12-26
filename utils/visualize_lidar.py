@@ -15,7 +15,7 @@ from matplotlib import cm
 sys.path.append(Path(__file__).parent.parent.as_posix())
 from param import ROOT_PATH
 
-VIRIDIS = np.array(cm.get_cmap('plasma').colors)
+VIRIDIS = np.array(cm.get_cmap('inferno').colors)
 VID_RANGE = np.linspace(0.0, 1.0, VIRIDIS.shape[0])
 LABEL_COLORS = np.array([
     (255, 255, 255), # None
