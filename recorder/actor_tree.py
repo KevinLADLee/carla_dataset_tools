@@ -1,6 +1,9 @@
 #!/usr/bin/python3
+import os
+
 import carla
 from recorder.actor_factory import ActorFactory, Node
+from multiprocessing.dummy import Pool as ThreadPool
 
 
 class ActorTree(object):
@@ -9,9 +12,15 @@ class ActorTree(object):
         self.actor_config_file = actor_config_file
         self.actor_factory = ActorFactory(self.world, base_save_dir)
         self.root = Node(None)
+        self.node_list = []
 
     def init(self):
         self.root = self.actor_factory.create_actor_tree(self.actor_config_file)
+        self.node_list.append(self.root)
+        for node in self.root.get_children():
+            self.node_list.append(node)
+            for sensor_node in node.get_children():
+                self.node_list.append(sensor_node)
 
     def destroy(self):
         self.root.destroy()
@@ -24,11 +33,15 @@ class ActorTree(object):
             v2i_layer_node.tick_controller()
 
     def tick_data_saving(self, frame_id, timestamp: float):
-        self.root.tick_data_saving(frame_id, timestamp)
-        for v2i_layer_node in self.root.get_children():
-            v2i_layer_node.tick_data_saving(frame_id, timestamp)
-            for sensor_layer_node in v2i_layer_node.get_children():
-                sensor_layer_node.tick_data_saving(frame_id, timestamp)
+        thread_pool = ThreadPool()
+        frame_id_list = [frame_id for i in range(len(self.node_list))]
+        timestamp_list = [timestamp for i in range(len(self.node_list))]
+        thread_pool.starmap_async(self.save_data, zip(frame_id_list, timestamp_list, self.node_list))
+        thread_pool.close()
+        thread_pool.join()
+
+    def save_data(self, frame_id, timestamp: float, node: Node):
+        node.tick_data_saving(frame_id, timestamp)
 
     def print_tree(self):
         print("------ Actor Tree BEGIN ------")

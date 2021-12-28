@@ -65,7 +65,7 @@ class Sensor(Actor):
         raise NotImplementedError
 
     def print_debug_info(self, data_frame_id, sensor_data):
-        print("\t\tFrame: {} uid={} data: {}".format(data_frame_id, self.uid, sensor_data))
+        print("\t\tParent uid: {}, Frame: {} uid={} data: {}".format(self.parent.uid, data_frame_id, self.uid, sensor_data))
 
     def get_save_dir(self):
         return self.save_dir

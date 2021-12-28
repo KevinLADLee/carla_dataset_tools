@@ -41,6 +41,9 @@ class Node(object):
     def get_children(self):
         return self._children_nodes
 
+    def get_node_type(self):
+        return self._node_type
+
     def destroy(self):
         for node in self._children_nodes:
             node.destroy()
@@ -52,9 +55,8 @@ class Node(object):
         if self._node_type == NodeType.VEHICLE:
             self._actor.control_step()
 
-    # Depth-First-Search for data collection
     def tick_data_saving(self, frame_id, timestamp):
-        if self._node_type == NodeType.SENSOR \
+        if self.get_node_type() == NodeType.SENSOR \
                 or NodeType.VEHICLE\
                 or NodeType.WORLD:
             self._actor.save_to_disk(frame_id, timestamp, True)
