@@ -20,7 +20,6 @@ class Vehicle(Actor):
         # For vehicle control
         self.auto_pilot = False
         self.vehicle_agent = None
-        # self.control_step()
 
     def get_save_dir(self):
         return self.save_dir
