@@ -11,7 +11,7 @@ class Infrastructure(PseudoActor):
                  transform: carla.Transform):
         super().__init__(uid=uid, name=name, parent=None)
         self.carla_transform = transform
-        self.save_dir = '{}/{}_{}'.format(base_save_dir, self.get_uid(), self.get_type_id())
+        self.save_dir = '{}/{}_{}'.format(base_save_dir, self.get_type_id(), self.get_uid())
 
     def get_carla_transform(self):
         return self.carla_transform
@@ -21,7 +21,7 @@ class Infrastructure(PseudoActor):
                                  carla.Vector3D(1.0, 1.0, 1.0))
 
     def get_type_id(self):
-        return 'v2i.infrastructure'
+        return 'others.infrastructure'
 
     def get_save_dir(self):
         return self.save_dir

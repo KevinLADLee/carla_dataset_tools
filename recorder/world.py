@@ -12,7 +12,7 @@ from utils.transform import carla_bbox_to_bbox, carla_transform_to_transform
 class WorldActor(PseudoActor):
     def __init__(self, uid, carla_world: carla.World, base_save_dir: str):
         super().__init__(uid, self.get_type_id(), None)
-        self.save_dir = "{}/{}_{}".format(base_save_dir, uid, self.get_type_id())
+        self.save_dir = "{}/{}_{}".format(base_save_dir, self.get_type_id(), uid)
         self.carla_world = carla_world
 
     def save_to_disk(self, frame_id, timestamp, debug=False):
@@ -51,7 +51,7 @@ class WorldActor(PseudoActor):
         return True
 
     def get_type_id(self):
-        return 'others.world_actor'
+        return 'others.world'
 
     def get_save_dir(self):
         return self.save_dir
@@ -59,7 +59,7 @@ class WorldActor(PseudoActor):
     def get_carla_transform(self) -> carla.Transform:
         return carla.Transform(carla.Location(0, 0, 0), carla.Rotation(0, 0, 0))
 
-    def get_env_objects_labels(self, frame, timestamp, object_type: carla.CityObjectLabel)-> list:
+    def get_env_objects_labels(self, frame, timestamp, object_type: carla.CityObjectLabel) -> list:
         object_labels = []
         if object_type == carla.CityObjectLabel.Vehicles:
             label_type = 'vehicle'

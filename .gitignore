@@ -4,3 +4,4 @@ __pycache__
 recorder/__pycache__
 raw_data/*
 dataset/*
+docs

@@ -15,7 +15,7 @@ class Vehicle(Actor):
                  carla_actor: carla.Sensor):
         super().__init__(uid=uid, name=name, parent=None, carla_actor=carla_actor)
         self.vehicle_type = copy.deepcopy(carla_actor.type_id)
-        self.save_dir = '{}/{}_{}'.format(base_save_dir, self.get_uid(), self.vehicle_type)
+        self.save_dir = '{}/{}_{}'.format(base_save_dir, self.vehicle_type, self.get_uid())
         self.first_tick = True
         # For vehicle control
         self.auto_pilot = False

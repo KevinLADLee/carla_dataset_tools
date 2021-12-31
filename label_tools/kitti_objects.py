@@ -5,7 +5,10 @@ import time
 
 import numpy as np
 import pandas as pd
+import sys
+from pathlib import Path
 
+sys.path.append(Path(__file__).parent.parent.as_posix())
 from param import RAW_DATA_PATH
 from utils.transform import *
 
@@ -30,7 +33,7 @@ def load_world_data(path: str):
 
 
 if __name__ == '__main__':
-    record_name = "record_2021_1225_1612"
+    record_name = "record_2021_1228_1858"
     vehicle_name = "1_vehicle.tesla.model3"
     sensor_name = "4_sensor.lidar.ray_cast"
 
@@ -104,7 +107,7 @@ if __name__ == '__main__':
         vis.add_geometry(o3d_pcd)
         vis.poll_events()
         vis.update_renderer()
-        time.sleep(0.1)
+        # time.sleep(0.1)
         frame += 1
 
     vis.destroy_window()
