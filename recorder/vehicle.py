@@ -6,6 +6,31 @@ import carla
 
 from recorder.actor import Actor
 
+class OtherVehicle(Actor):
+    def __init__(self,
+                 uid,
+                 name: str,
+                 base_save_dir: str,
+                 carla_actor: carla.Sensor):
+        super().__init__(uid=uid, name=name, parent=None, carla_actor=carla_actor)
+        self.vehicle_type = copy.deepcopy(carla_actor.type_id)
+        self.save_dir = '{}/{}_{}'.format(base_save_dir, self.vehicle_type, self.get_uid())
+        self.first_tick = True
+        # For vehicle control
+        self.auto_pilot = True
+        self.vehicle_agent = None
+
+    def save_to_disk(self, frame_id, timestamp, debug=False):
+        # Other vehicle not saving data
+        return
+
+    def control_step(self):
+        # TODO: Migration with agents.behavior_agent
+        if not self.auto_pilot:
+            self.carla_actor.set_autopilot()
+            self.auto_pilot = True
+        else:
+            return
 
 class Vehicle(Actor):
     def __init__(self,

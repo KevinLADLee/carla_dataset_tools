@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 import os
 import json
+import random
 from enum import Enum
 
 import carla
@@ -13,7 +14,7 @@ from recorder.actor import Actor, PseudoActor
 from recorder.camera import RgbCamera, DepthCamera, SemanticSegmentationCamera
 from recorder.lidar import Lidar, SemanticLidar
 from recorder.radar import Radar
-from recorder.vehicle import Vehicle
+from recorder.vehicle import Vehicle, OtherVehicle
 from recorder.infrastructure import Infrastructure
 from recorder.world import WorldActor
 
@@ -24,6 +25,7 @@ class NodeType(Enum):
     VEHICLE = 2
     INFRASTRUCTURE = 3
     SENSOR = 4
+    OTHER_VEHICLE = 5
 
 
 class Node(object):
@@ -98,6 +100,10 @@ class ActorFactory(object):
                             sensor_node = self.create_sensor_node(sensor_info, node.get_actor())
                             node.add_child(sensor_node)
 
+        other_vehicle_info = json_actors["other_vehicles"]
+        ov_nodes = self.create_other_vehicles(other_vehicle_info)
+        root.get_children().extend(ov_nodes)
+
         return root
 
     def create_world_node(self):
@@ -131,6 +137,22 @@ class ActorFactory(object):
         vehicle_node = Node(vehicle_object, NodeType.VEHICLE)
         self._uid_count += 1
         return vehicle_node
+
+    def create_other_vehicles(self, other_vehicles_info):
+        blueprints = self.blueprint_lib.filter('vehicle.*')
+        spawn_points = other_vehicles_info['spawn_points']
+        other_vehicle_nodes = []
+        for spawn_point in spawn_points:
+            bp = random.choice(blueprints)
+            transform = self.spawn_points[spawn_point]
+            carla_actor = self.world.spawn_actor(bp, transform)
+            other_vehicle_object = OtherVehicle(uid=self.get_uid_count(),
+                                                name=f'other_vehicle_{self.get_uid_count()}',
+                                                base_save_dir="/tmp",
+                                                carla_actor=carla_actor)
+            other_vehicle_node = Node(other_vehicle_object, NodeType.OTHER_VEHICLE)
+            other_vehicle_nodes.append(other_vehicle_node)
+        return other_vehicle_nodes
 
     def create_infrastructure_node(self, actor_info):
         infrastructure_name = actor_info["name"]
