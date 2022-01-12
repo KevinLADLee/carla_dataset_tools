@@ -22,6 +22,6 @@
     ],
     "other_vehicles":
     {
-        "spawn_points": [50, 52, 55]
+        "spawn_points": [44, 55, 64, 39]
     }
 }

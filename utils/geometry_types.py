@@ -52,6 +52,10 @@ class Rotation:
         self.pitch = float(pitch)
         self.yaw = float(yaw)
 
+    def get_quaternion(self):
+        quaternion = tf3d.euler.euler2quat(self.roll, self.pitch, self.yaw)
+        return quaternion
+
     def get_rotation_matrix(self):
         return tf3d.euler.euler2mat(math.radians(self.roll),
                                     math.radians(self.pitch),

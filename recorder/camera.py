@@ -74,7 +74,7 @@ class CameraBase(Sensor):
     def get_transform(self) -> Transform:
         c_trans = self.carla_actor.get_transform()
         trans = carla_transform_to_transform(c_trans)
-        quat = transforms3d.quaternions.mat2quat(trans.rotation.get_rotation_matrix())
+        quat = trans.rotation.get_quaternion()
         quat_swap = transforms3d.quaternions.mat2quat(np.matrix(
                       [[0, 0, 1],
                        [-1, 0, 0],
