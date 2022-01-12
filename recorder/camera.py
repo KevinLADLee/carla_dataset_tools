@@ -81,7 +81,9 @@ class CameraBase(Sensor):
                        [0, -1, 0]]))
         quat_camera = transforms3d.quaternions.qmult(quat, quat_swap)
         roll, pitch, yaw = transforms3d.euler.quat2euler(quat_camera)
-        return Transform(trans.location, Rotation(roll=roll, pitch=pitch, yaw=yaw))
+        return Transform(trans.location, Rotation(roll=math.degrees(roll),
+                                                  pitch=math.degrees(pitch),
+                                                  yaw=math.degrees(yaw)))
 
 
 class RgbCamera(CameraBase):

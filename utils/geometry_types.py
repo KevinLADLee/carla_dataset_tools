@@ -47,13 +47,21 @@ class Location(Vector3d):
 
 
 class Rotation:
-    def __init__(self, *, pitch=0.0, yaw=0.0, roll=0.0):
-        self.roll = float(roll)
-        self.pitch = float(pitch)
-        self.yaw = float(yaw)
+    def __init__(self, *, pitch=0.0, yaw=0.0, roll=0.0, radian=False):
+        # RPY in degree
+        if radian:
+            self.roll = math.degrees(float(roll))
+            self.pitch = math.degrees(float(pitch))
+            self.yaw = math.degrees(float(yaw))
+        else:
+            self.roll = roll
+            self.pitch = pitch
+            self.yaw = yaw
 
     def get_quaternion(self):
-        quaternion = tf3d.euler.euler2quat(self.roll, self.pitch, self.yaw)
+        quaternion = tf3d.euler.euler2quat(math.radians(self.roll),
+                                           math.radians(self.pitch),
+                                           math.radians(self.yaw))
         return quaternion
 
     def get_rotation_matrix(self):
@@ -75,7 +83,9 @@ class Rotation:
                                   other.get_rotation_matrix())
 
     def __str__(self):
-        return "Rotation(pitch={}, yaw={}, roll={})".format(self.pitch, self.yaw, self.roll)
+        return "Rotation(pitch={}, yaw={}, roll={})".format(self.pitch,
+                                                            self.yaw,
+                                                            self.roll)
 
 
 class Transform:

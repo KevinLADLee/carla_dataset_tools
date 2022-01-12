@@ -43,14 +43,14 @@ class KittiObjectLabel:
         # self.process_pool = ThreadPool()
 
     def process(self):
-        vis = o3d.visualization.Visualizer()
-        vis.create_window(window_name='Kitti Objects Label')
-        vis.get_render_option().point_size = 1
-        vis.get_render_option().show_coordinate_frame = True
-        vis_ctl = vis.get_view_control()
-        vis_ctl.set_zoom(0.9)
+        # vis = o3d.visualization.Visualizer()
+        # vis.create_window(window_name='Kitti Objects Label')
+        # vis.get_render_option().point_size = 1
+        # vis.get_render_option().show_coordinate_frame = True
+        # vis_ctl = vis.get_view_control()
+        # vis_ctl.set_zoom(0.9)
         for index, frame in self.rawdata_df.iterrows():
-            vis.clear_geometries()
+            # vis.clear_geometries()
             lidar_trans: Transform = frame['lidar_pose']
             cam_trans: Transform = frame['camera_pose']
             lidar_data = numpy.load(frame['lidar_rawdata_path'])
@@ -82,38 +82,54 @@ class KittiObjectLabel:
                 if len(p_num_in_bbox) < self.points_min:
                     continue
 
+                # Transform bbox vertices to camera coordinate
                 vertex_points = np.asarray(o3d_bbox.get_box_points())
-                print("---")
-                print(np.asarray(o3d_bbox.center))
-                print(vertex_points)
-                print(lidar_trans)
+                bbox_points_2d_x = []
+                bbox_points_2d_y = []
                 for p in vertex_points:
                     p = np.append(p, [1.0])
                     T_wl = lidar_trans.get_matrix()
-                    p_w = np.matmul(T_wl, p)
-                    print(p_w)
+                    # p_w = np.matmul(T_wl, p)
                     T_cw = cam_trans.get_inverse_matrix()
-                    p_c = np.matmul(T_cw, p_w)
-                    print(p_c)
+                    T_cl = np.matmul(T_cw, T_wl)
+                    p_c = np.matmul(T_cl, p)
                     p_c = p_c[0:3] / p_c[2]
-                    print(p_c)
-                    # p_c = np.array([0, 0, 1])
                     p_uv = np.matmul(cam_mat, p_c)
                     p_uv = p_uv[0:2].astype(int)
-                    print(p_uv)
-                    cv2.circle(image, p_uv, 1, (0, 0, 255), 2)
+                    # cv2.circle(image, p_uv, 1, (0, 0, 255), 2)
+                    bbox_points_2d_x.append(p_uv[0])
+                    bbox_points_2d_y.append(p_uv[1])
 
+                # Generate 2d bbox by left-top point and right-bottom point
+                min_x = min(bbox_points_2d_x)
+                max_x = max(bbox_points_2d_x)
+                min_y = min(bbox_points_2d_y)
+                max_y = max(bbox_points_2d_y)
 
+                # For Debug
+                # Draw 2d bbox
+                cv2.rectangle(image, [min_x, min_y], [max_x, max_y], color=(0, 0, 255), thickness=1)
                 cv2.imshow('preview', image)
                 cv2.waitKey()
+                #
+                # Draw camera coordinate
+                # p_cam = np.append(cam_trans.location.get_vector(), [[1.0]])
+                # print(p_cam)
+                # p_cam_in_lidar = numpy.matmul(lidar_trans.get_inverse_matrix(), p_cam)[0:3]
+                # coord = o3d.geometry.TriangleMesh.create_coordinate_frame(size=10.0, origin=[p_cam_in_lidar[0],
+                #                                                                              p_cam_in_lidar[1],
+                #                                                                              p_cam_in_lidar[2]])
+                # coord.rotate(cam_trans.rotation.get_rotation_matrix())
+                # print(p_cam_in_lidar)
+                # o3d.visualization.draw_geometries([o3d_pcd, o3d_bbox, coord])
 
                 bbox_list.append(o3d_bbox)
-                vis.add_geometry(o3d_bbox)
+                # vis.add_geometry(o3d_bbox)
 
-            time.sleep(0.05)
-            vis.add_geometry(o3d_pcd)
-            vis.poll_events()
-            vis.update_renderer()
+            # time.sleep(0.05)
+            # vis.add_geometry(o3d_pcd)
+            # vis.poll_events()
+            # vis.update_renderer()
 
     def is_valid_distance(self, source_location: Location, target_location: Location):
         dist = np.linalg.norm(source_location.get_vector() - target_location.get_vector())
@@ -137,7 +153,7 @@ class KittiObjectLabel:
 
 
 def main():
-    rawdata_df = gather_rawdata_to_dataframe("record_2022_0112_2146",
+    rawdata_df = gather_rawdata_to_dataframe("record_2022_0112_2340",
                                              "vehicle.tesla.model3_1",
                                              "sensor.lidar.ray_cast_4",
                                              "sensor.camera.rgb_2")
