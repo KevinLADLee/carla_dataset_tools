@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 import math
 import numpy
+import numpy as np
 import transforms3d as tf3d
 import open3d as o3d
 
@@ -110,6 +111,10 @@ class Transform:
     def get_inverse_matrix(self):
         trans_mat = self.get_matrix()
         return numpy.linalg.inv(trans_mat)
+
+    def get_forward_vector(self):
+        f_vec = np.array([1.0, 0.0, 0.0, 1.0]).reshape(4, 1)
+        return np.matmul(self.get_matrix(), f_vec)
 
     def transform(self, point: Location):
         trans_mat = self.get_matrix()

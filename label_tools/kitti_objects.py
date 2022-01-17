@@ -1,13 +1,20 @@
 #!/usr/bin/python3
+import copy
+import math
 import pickle
 import sys
 import time
 
 import cv2
 import numpy as np
+import open3d.cpu.pybind.visualization
 import pandas as pd
 from pathlib import Path
 from multiprocessing.dummy import Pool as ThreadPool
+
+from typing import List
+
+import transforms3d.euler
 
 sys.path.append(Path(__file__).parent.parent.as_posix())
 from param import RAW_DATA_PATH
@@ -49,6 +56,7 @@ class KittiObjectLabel:
         # vis.get_render_option().show_coordinate_frame = True
         # vis_ctl = vis.get_view_control()
         # vis_ctl.set_zoom(0.9)
+        # cv2.namedWindow('preview_image', cv2.WINDOW_AUTOSIZE)
         for index, frame in self.rawdata_df.iterrows():
             # vis.clear_geometries()
             lidar_trans: Transform = frame['lidar_pose']
@@ -66,70 +74,125 @@ class KittiObjectLabel:
                 objects_labels = pickle.load(pkl_file)
 
             # Convert all bbox to o3d bbox
-            bbox_list = [o3d.geometry.OrientedBoundingBox]
+            bbox_list_3d = [o3d.geometry.OrientedBoundingBox]
+            bbox_list_2d = []
             for label in objects_labels:
+                # Kitti Object - Type
+                if label.label_type == 'vehicle':
+                    label_type = 'Car'
+                elif label.label_type:
+                    label_type = 'Pedestrian'
+                else:
+                    label_type = 'DontCare'
 
                 if not self.is_valid_distance(lidar_trans.location, label.transform.location):
                     continue
 
                 o3d_bbox = self.get_o3d_bbox_in_target_coordinate(lidar_trans, label)
 
+                # Ignore backward vehicles
                 if o3d_bbox.center[0] < 0:
                     continue
 
-                # Check points in bbox
-                p_num_in_bbox = o3d_bbox.get_point_indices_within_bounding_box(o3d_pcd.points)
-                if len(p_num_in_bbox) < self.points_min:
+                # Check lidar points in bbox
+                occlusion = self.cal_occlusion(o3d_pcd, o3d_bbox)
+                if occlusion < 0:
                     continue
 
                 # Transform bbox vertices to camera coordinate
                 vertex_points = np.asarray(o3d_bbox.get_box_points())
                 bbox_points_2d_x = []
                 bbox_points_2d_y = []
+                # bbox_points_3d = []
                 for p in vertex_points:
-                    p = np.append(p, [1.0])
-                    T_wl = lidar_trans.get_matrix()
-                    # p_w = np.matmul(T_wl, p)
-                    T_cw = cam_trans.get_inverse_matrix()
-                    T_cl = np.matmul(T_cw, T_wl)
-                    p_c = np.matmul(T_cl, p)
-                    p_c = p_c[0:3] / p_c[2]
-                    p_uv = np.matmul(cam_mat, p_c)
-                    p_uv = p_uv[0:2].astype(int)
-                    # cv2.circle(image, p_uv, 1, (0, 0, 255), 2)
+                    p_c = self.lidar_point_to_cam(p, lidar_trans, cam_trans)
+                    # bbox_points_3d.append(p_c)
+                    p_uv = self.project_point_to_image(p_c, cam_mat)
                     bbox_points_2d_x.append(p_uv[0])
                     bbox_points_2d_y.append(p_uv[1])
 
+                # bbox_points_3d = o3d.utility.Vector3dVector(np.asarray(bbox_points_3d)[:, 0:3])
+                # bbox_3d_in_cam = o3d.geometry.OrientedBoundingBox.create_from_points(bbox_points_3d)
                 # Generate 2d bbox by left-top point and right-bottom point
-                min_x = min(bbox_points_2d_x)
-                max_x = max(bbox_points_2d_x)
-                min_y = min(bbox_points_2d_y)
-                max_y = max(bbox_points_2d_y)
+                # p_array = np.asarray([sorted(bbox_points_2d_x), sorted(bbox_points_2d_y)])
+                # p_array = p_array.transpose()
+
+                # print(p_array)
+
+                x_min = min(bbox_points_2d_x)
+                x_max = max(bbox_points_2d_x)
+                y_min = min(bbox_points_2d_y)
+                y_max = max(bbox_points_2d_y)
+                # cv2.circle(image, (x_max, y_min), radius=1, color=(255, 0, 0), thickness=2)
+
+                truncated = self.cal_truncated(image.shape[0], image.shape[1], [x_min, y_min, x_max, y_max])
 
                 # For Debug
                 # Draw 2d bbox
-                cv2.rectangle(image, [min_x, min_y], [max_x, max_y], color=(0, 0, 255), thickness=1)
-                cv2.imshow('preview', image)
-                cv2.waitKey()
-                #
-                # Draw camera coordinate
-                # p_cam = np.append(cam_trans.location.get_vector(), [[1.0]])
-                # print(p_cam)
-                # p_cam_in_lidar = numpy.matmul(lidar_trans.get_inverse_matrix(), p_cam)[0:3]
-                # coord = o3d.geometry.TriangleMesh.create_coordinate_frame(size=10.0, origin=[p_cam_in_lidar[0],
-                #                                                                              p_cam_in_lidar[1],
-                #                                                                              p_cam_in_lidar[2]])
-                # coord.rotate(cam_trans.rotation.get_rotation_matrix())
-                # print(p_cam_in_lidar)
-                # o3d.visualization.draw_geometries([o3d_pcd, o3d_bbox, coord])
+                cv2.rectangle(image, (x_min, y_min), (x_max, y_max), color=(0, 0, 255), thickness=1)
 
-                bbox_list.append(o3d_bbox)
-                # vis.add_geometry(o3d_bbox)
+                # T = np.matmul(lidar_trans.get_inverse_matrix(), cam_trans.get_matrix())
+                # cam_coord = o3d.geometry.TriangleMesh.create_coordinate_frame(size=10.0)
+                # cam_coord.rotate(T[0:3, 0:3])
+                # cam_coord.translate(T[0:3, 3])
 
-            # time.sleep(0.05)
+                # Transform 3d bbox to camera coordinate
+                T_lc = np.matmul(cam_trans.get_inverse_matrix(), lidar_trans.get_matrix())
+                o3d_pcd.rotate(T_lc[0:3, 0:3], np.array([0, 0, 0]))
+                o3d_pcd.translate(T_lc[0:3, 3])
+
+                o3d_bbox.rotate(T_lc[0:3, 0:3], np.array([0, 0, 0]))
+                o3d_bbox.translate(T_lc[0:3, 3])
+
+                cam_coord = o3d.geometry.TriangleMesh.create_coordinate_frame(size=10.0)
+
+                _, rotation_y, _ = transforms3d.euler.mat2euler(o3d_bbox.R)
+                # print(math.degrees(rotation_y))
+
+                bbox_center = np.asarray(o3d_bbox.center)
+                theta = math.atan2(-bbox_center[0], bbox_center[2])
+                alpha = rotation_y - theta
+                alpha = math.atan2(math.sin(alpha), math.cos(alpha))
+
+                o3d.visualization.draw_geometries([o3d_pcd, o3d_bbox, cam_coord])
+
+                bbox_list_3d.append(o3d_bbox)
+                bbox_list_2d.append([x_min, y_min, x_max, y_max])
+
+            cv2.imshow('preview_image', image)
             # vis.add_geometry(o3d_pcd)
             # vis.poll_events()
             # vis.update_renderer()
+            cv2.waitKey(1)
+            time.sleep(0.05)
+
+    # def generate_kitti_labels(self,
+    #                           type: str,
+    #                           bbox_3d_list: o3d.geometry.OrientedBoundingBox,
+    #                           bbox_2d_list: List,
+    #                           lidar_trans: Transform,
+    #                           cam_trans: Transform):
+    #
+    #     truncation = self.cal_truncated()
+    #     label_str = "{} {} {}".format(type, truncation, occlusion, alpha, xmin, ymin, xmax, ymax, height, witdth, length, location, ry)
+    #     return
+
+    def lidar_point_to_cam(self, point, lidar_trans, cam_trans):
+        p = np.append(point, [1.0])
+        T_wl = lidar_trans.get_matrix()
+        T_cw = cam_trans.get_inverse_matrix()
+        T_cl = np.matmul(T_cw, T_wl)
+        p_c = np.matmul(T_cl, p)
+        return p_c
+
+    def project_point_to_image(self,
+                            point_in_cam,
+                            cam_mat: np.array):
+        p_c = point_in_cam
+        p_c = p_c[0:3] / p_c[2]
+        p_uv = np.matmul(cam_mat, p_c)
+        p_uv = p_uv[0:2].astype(int)
+        return p_uv
 
     def is_valid_distance(self, source_location: Location, target_location: Location):
         dist = np.linalg.norm(source_location.get_vector() - target_location.get_vector())
@@ -150,10 +213,38 @@ class KittiObjectLabel:
         o3d_bbox.color = np.array([1.0, 0, 0])
         return o3d_bbox
 
+    def cal_truncated(self, image_length, image_width, bbox_2d: list):
+        # x_min y_min x_max y_max
+        bbox_2d_in_img = copy.deepcopy(bbox_2d)
+        bbox_2d_in_img[0] = max(bbox_2d[0], 0)
+        bbox_2d_in_img[1] = max(bbox_2d[1], 0)
+        bbox_2d_in_img[2] = min(bbox_2d[2], image_width)
+        bbox_2d_in_img[3] = min(bbox_2d[3], image_length)
+
+        size1 = (bbox_2d_in_img[2] - bbox_2d_in_img[0]) * (bbox_2d_in_img[3] - bbox_2d_in_img[1])
+        size2 = (bbox_2d[2] - bbox_2d[0]) * (bbox_2d[3] - bbox_2d[1])
+        truncated = size1 / size2
+        truncated = max(truncated, 0.0)
+        truncated = min(truncated, 1.0)
+        return truncated
+
+    def cal_occlusion(self, pcd: o3d.geometry.PointCloud, bbox_3d: o3d.geometry.OrientedBoundingBox):
+        occlusion = -1
+        p_in_bbox = bbox_3d.get_point_indices_within_bounding_box(pcd.points)
+        p_num = len(p_in_bbox)
+        if p_num < self.points_min:
+            return occlusion
+        elif p_num > self.points_min:
+            occlusion = 0
+        if p_num + bbox_3d.center[0] < 250:
+            occlusion = 1
+        if p_num + bbox_3d.center[0] < 125:
+            occlusion = 2
+        return occlusion
 
 
 def main():
-    rawdata_df = gather_rawdata_to_dataframe("record_2022_0112_2340",
+    rawdata_df = gather_rawdata_to_dataframe("record_2022_0113_1337",
                                              "vehicle.tesla.model3_1",
                                              "sensor.lidar.ray_cast_4",
                                              "sensor.camera.rgb_2")
