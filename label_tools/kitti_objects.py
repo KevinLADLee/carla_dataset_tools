@@ -1,5 +1,7 @@
 #!/usr/bin/python3
+import argparse
 import copy
+import glob
 import math
 import os
 import pickle
@@ -8,7 +10,7 @@ import time
 
 import cv2
 import numpy as np
-import open3d.cpu.pybind.visualization
+import open3d.cuda.pybind.geometry
 import pandas as pd
 from pathlib import Path
 from multiprocessing.pool import Pool as ThreadPool
@@ -93,7 +95,7 @@ def write_calib(output_dir, frame_id, lidar_trans: Transform, cam_trans: Transfo
         calib_str += ' '
     calib_str += '\n'
 
-    calib_str += 'R0_rect: 1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0 \n'
+    calib_str += "R0_rect: 1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0 \n"
 
     velo_to_cam = np.matmul(cam_trans.get_inverse_matrix(), lidar_trans.get_matrix())
     velo_to_cam = velo_to_cam[0:3, :]
@@ -115,18 +117,22 @@ def generate_kitti_labels(label_type: str,
                           bbox_2d: List,
                           bbox_3d: o3d.geometry.OrientedBoundingBox,
                           rotation_y: float):
+
+    # Note: Kitti Object 3d bbox location is top-plane-center, not the bbox center
     label_str = "{} {} {} {} {} {} {} {} {} {} {} {} {} {} {} \n".format(label_type, truncated, occlusion, alpha,
                                                                          bbox_2d[0], bbox_2d[1],
                                                                          bbox_2d[2], bbox_2d[3],
-                                                                         bbox_3d.extent[2], bbox_3d.extent[1],
+                                                                         bbox_3d.extent[2],
+                                                                         bbox_3d.extent[1],
                                                                          bbox_3d.extent[0],
-                                                                         bbox_3d.center[0], bbox_3d.center[1],
+                                                                         bbox_3d.center[0],
+                                                                         bbox_3d.center[1] + (bbox_3d.extent[2] / 2.0),
                                                                          bbox_3d.center[2],
                                                                          rotation_y)
     return label_str
 
 
-def get_o3d_bbox_in_target_coordinate(target_transform: Transform, label: ObjectLabel):
+def bbox_to_o3d_bbox_in_target_coordinate(label: ObjectLabel, target_transform: Transform):
     world_to_target = target_transform.get_inverse_matrix()
     label_to_world = label.transform.get_matrix()
     label_in_target = np.matmul(world_to_target, label_to_world)
@@ -171,29 +177,29 @@ class KittiObjectLabelTool:
         # vis.create_window(window_name='Kitti Objects Label')
         # vis.get_render_option().point_size = 1
         # vis.get_render_option().show_coordinate_frame = True
-        # vis_ctl = vis.get_view_control()
-        # vis_ctl.set_zoom(0.9)
         # cv2.namedWindow('preview_image', cv2.WINDOW_AUTOSIZE)
 
-        start = time.time()
-        thread_pool = ThreadPool()
-        thread_pool.starmap_async(self.process_frame, self.rawdata_df.iterrows())
-        thread_pool.close()
-        thread_pool.join()
+        # start = time.time()
+        # thread_pool = ThreadPool()
+        # thread_pool.starmap(self.process_frame, self.rawdata_df.iterrows())
+        # thread_pool.close()
+        # thread_pool.join()
+        # print("Cost: {:0<10f}s".format(time.time() - start))
 
-        # for index, frame in self.rawdata_df.iterrows():
-            # vis.clear_geometries()
-            # self.process_frame(index, frame)
-            # cv2.imshow('preview_image', image)
-            # vis.add_geometry(o3d_pcd)
-            # vis.poll_events()
-            # vis.update_renderer()
-            # cv2.waitKey(1)
-            # time.sleep(0.05)
-        print("Cost: {:0<10f}s".format(time.time()-start))
+        # start = time.time()
+        for index, frame in self.rawdata_df.iterrows():
+        # vis.clear_geometries()
+            self.process_frame(index, frame)
+        # cv2.imshow('preview_image', image)
+        # vis.add_geometry(o3d_pcd)
+        # vis.poll_events()
+        # vis.update_renderer()
+        # cv2.waitKey(1)
+        # time.sleep(0.05)
+        # print("Cost: {:0<10f}s".format(time.time()-start))
 
     def process_frame(self, index, frame):
-        frame_id = "{:0>10d}".format(frame['frame'])
+        frame_id = "{:0>6d}".format(frame['frame'])
         lidar_trans: Transform = frame['lidar_pose']
         cam_trans: Transform = frame['camera_pose']
         cam_mat = np.asarray(frame['camera_matrix'])
@@ -224,7 +230,7 @@ class KittiObjectLabelTool:
             if not self.is_valid_distance(lidar_trans.location, label.transform.location):
                 continue
 
-            o3d_bbox = get_o3d_bbox_in_target_coordinate(lidar_trans, label)
+            o3d_bbox = bbox_to_o3d_bbox_in_target_coordinate(label, lidar_trans)
 
             # Ignore backward vehicles
             if o3d_bbox.center[0] < 0:
@@ -282,9 +288,11 @@ class KittiObjectLabelTool:
             theta = math.atan2(-bbox_center[0], bbox_center[2])
             alpha = rotation_y - theta
             alpha = math.atan2(math.sin(alpha), math.cos(alpha))
-
-            # cam_coord = o3d.geometry.TriangleMesh.create_coordinate_frame(size=10.0)
-            # o3d.visualization.draw_geometries([o3d_pcd, o3d_bbox, cam_coord])
+            #
+            # if frame['frame'] == 98:
+            #     cam_coord = o3d.geometry.TriangleMesh.create_coordinate_frame(size=10.0)
+            #     box_coord = o3d.geometry.TriangleMesh.create_coordinate_frame(origin=bbox_center)
+            #     o3d.visualization.draw_geometries([o3d_pcd, o3d_bbox, cam_coord, box_coord])
 
             kitti_label = generate_kitti_labels(label_type, truncated, occlusion, alpha,
                                                 bbox_2d, o3d_bbox, rotation_y)
@@ -293,12 +301,15 @@ class KittiObjectLabelTool:
             bbox_list_3d.append(o3d_bbox)
             bbox_list_2d.append(bbox_2d)
 
-        output_dir = "{}/{}/{}".format(DATASET_PATH, self.record_name, self.vehicle_name)
+        output_dir = "{}/{}/{}/training".format(DATASET_PATH, self.record_name, self.vehicle_name)
 
         write_calib(output_dir, frame_id, lidar_trans, cam_trans, cam_mat)
         write_label(output_dir, frame_id, kitti_labels)
         write_image(output_dir, frame_id, image)
         write_pointcloud(output_dir, frame_id, lidar_data)
+
+    def priview_label_result(self, pcd: o3d.geometry.PointCloud, img: np.array, kitti_labels):
+        return
 
     def lidar_point_to_cam(self, point, lidar_trans, cam_trans):
         p = np.append(point, [1.0])
@@ -340,12 +351,44 @@ class KittiObjectLabelTool:
 
 
 def main():
-    rawdata_df = gather_rawdata_to_dataframe("record_2022_0113_1337",
-                                             "vehicle.tesla.model3_1",
-                                             "sensor.lidar.ray_cast_4",
-                                             "sensor.camera.rgb_2")
-    kitti_obj_label_tool = KittiObjectLabelTool("record_2022_0113_1337", "vehicle.tesla.model3_1", rawdata_df)
-    kitti_obj_label_tool.process()
+    argparser = argparse.ArgumentParser(description=__doc__)
+    argparser.add_argument(
+        '--record', '-r',
+        required=True,
+        help='Rawdata Record ID. e.g. record_2022_0113_1337'
+    )
+    argparser.add_argument(
+        '--vehicle', '-v',
+        default='all',
+        help='Vehicle name. e.g. `vehicle.tesla.model3_1`. Default to all vehicles. '
+    )
+    argparser.add_argument(
+        '--lidar', '-l',
+        default='velodyne',
+        help='Lidar name. e.g. sensor.lidar.ray_cast_4'
+    )
+    argparser.add_argument(
+        '--camera', '-c',
+        default='image_2',
+        help='Camera name. e.g. sensor.camera.rgb_2'
+    )
+
+    args = argparser.parse_args()
+
+    record_name = args.record
+    if args.vehicle is 'all':
+        vehicle_name_list = [os.path.basename(x) for x in glob.glob('{}/{}/vehicle.*'.format(RAW_DATA_PATH, record_name))]
+    else:
+        vehicle_name_list = [args.vehicle]
+
+    for vehicle_name in vehicle_name_list:
+        rawdata_df = gather_rawdata_to_dataframe(args.record,
+                                                 vehicle_name,
+                                                 args.lidar,
+                                                 args.camera)
+        print("Process {} - {}".format(record_name, vehicle_name))
+        kitti_obj_label_tool = KittiObjectLabelTool(record_name, vehicle_name, rawdata_df)
+        kitti_obj_label_tool.process()
 
 
 if __name__ == '__main__':

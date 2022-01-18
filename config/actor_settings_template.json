@@ -8,10 +8,16 @@
             "spawn_point": 73
         },
         {
-            "type": "vehicle.audi.etron",
-            "name": "vehicle_simpler",
-            "sensors_setting": "sensor_config_simple.json",
-            "spawn_point": 76
+            "type": "vehicle.tesla.model3",
+            "name": "vehicle_master",
+            "sensors_setting": "sensor_config_template.json",
+            "spawn_point": 68
+        },
+        {
+            "type": "vehicle.tesla.model3",
+            "name": "vehicle_master",
+            "sensors_setting": "sensor_config_template.json",
+            "spawn_point": 82
         },
         {
             "type": "infrastructure",
