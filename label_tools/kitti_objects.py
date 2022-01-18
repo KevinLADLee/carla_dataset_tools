@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 import copy
 import math
+import os
 import pickle
 import sys
 import time
@@ -17,31 +18,126 @@ from typing import List
 import transforms3d.euler
 
 sys.path.append(Path(__file__).parent.parent.as_posix())
-from param import RAW_DATA_PATH
+from param import RAW_DATA_PATH, DATASET_PATH
 from utils.transform import *
 from utils.label_types import ObjectLabel
 from label_tools.data_loader import *
 
 
-def gather_rawdata_to_dataframe(record_name: str, vehicle_path: str, lidar_path: str, camera_path: str):
+def gather_rawdata_to_dataframe(record_name: str, vehicle_name: str, lidar_path: str, camera_path: str):
     rawdata_frames_df = pd.DataFrame()
-    vehicle_poses_df = load_vehicle_pose("{}/{}/{}".format(RAW_DATA_PATH, record_name, vehicle_path))
+    vehicle_poses_df = load_vehicle_pose("{}/{}/{}".format(RAW_DATA_PATH, record_name, vehicle_name))
     rawdata_frames_df = vehicle_poses_df
 
     object_labels_path_df = load_object_labels("{}/{}/others.world_0".format(RAW_DATA_PATH, record_name))
     rawdata_frames_df = pd.merge(rawdata_frames_df, object_labels_path_df, how='outer', on='frame')
 
-    lidar_rawdata_df = load_lidar_rawdata(f"{RAW_DATA_PATH}/{record_name}/{vehicle_path}/{lidar_path}")
+    lidar_rawdata_df = load_lidar_rawdata(f"{RAW_DATA_PATH}/{record_name}/{vehicle_name}/{lidar_path}")
     rawdata_frames_df = pd.merge(rawdata_frames_df, lidar_rawdata_df, how='outer', on='frame')
 
-    camera_rawdata_path_df = load_camera_data(f"{RAW_DATA_PATH}/{record_name}/{vehicle_path}/{camera_path}")
+    camera_rawdata_path_df = load_camera_data(f"{RAW_DATA_PATH}/{record_name}/{vehicle_name}/{camera_path}")
     rawdata_frames_df = pd.merge(rawdata_frames_df, camera_rawdata_path_df, how='outer', on='frame')
 
     return rawdata_frames_df
 
 
-class KittiObjectLabel:
-    def __init__(self, args, rawdata_df: pd.DataFrame):
+def output_frame(record_name: str, vehicle_name: str, rawdata_df: pd.DataFrame, kitti_labels: str):
+    output_dir = "{}/{}/{}".format(DATASET_PATH, record_name, vehicle_name)
+    img_dir = f"{output_dir}/image_2"
+    label_dir = f"{output_dir}/label_2"
+    lidar_dir = f"{output_dir}/velodyne"
+    calib_dir = f"{output_dir}/calib"
+    os.makedirs(output_dir, exist_ok=True)
+
+
+def write_pointcloud(output_dir: str, frame_id: str, lidar_data: np.array):
+    lidar_dir = f"{output_dir}/velodyne"
+    os.makedirs(lidar_dir, exist_ok=True)
+    file_path = "{}/{}.bin".format(lidar_dir, frame_id)
+    lidar_data.tofile(file_path)
+
+def write_image(output_dir: str, frame_id: str, image: np.array):
+    image_dir = f"{output_dir}/image_2"
+    os.makedirs(image_dir, exist_ok=True)
+    file_path = "{}/{}.png".format(image_dir, frame_id)
+    cv2.imwrite(file_path, image)
+
+def write_label(output_dir, frame_id, kitti_labels):
+    label_dir = f"{output_dir}/label_2"
+    os.makedirs(label_dir, exist_ok=True)
+    file_path = "{}/{}.txt".format(label_dir, frame_id)
+
+    if len(kitti_labels) < 1:
+        kitti_labels.append('DontCare -1 -1 -10 522.25 202.35 547.77 219.71 -1 -1 -1 -1000 -1000 -1000 -10 -10 \n')
+
+    with open(file_path, 'w') as label_file:
+        label_file.writelines(kitti_labels)
+
+
+def write_calib(output_dir, frame_id, lidar_trans: Transform, cam_trans: Transform, camera_mat: np.array):
+    """ Saves the calibration matrices to a file.
+        The resulting file will contain:
+        3x4    p0-p3      Camera P matrix. Contains extrinsic
+                          and intrinsic parameters. (P=K*[R;t])
+        3x3    r0_rect    Rectification matrix, required to transform points
+                          from velodyne to camera coordinate frame.
+        3x4    tr_velodyne_to_cam    Used to transform from velodyne to cam
+                                     coordinate frame according to:
+                                     Point_Camera = P_cam * R0_rect *
+                                                    Tr_velo_to_cam *
+                                                    Point_Velodyne.
+        3x4    tr_imu_to_velo        Used to transform from imu to velodyne coordinate frame.
+    """
+    calib_dir = f"{output_dir}/calib"
+    os.makedirs(calib_dir, exist_ok=True)
+    file_path = "{}/{}.txt".format(calib_dir, frame_id)
+
+    camera_mat = np.concatenate((camera_mat, np.array([[0.0], [0.0], [0.0]])), axis=1)
+    camera_mat = camera_mat.reshape(1, 12)
+    calib_str = "P2: "
+    for x in camera_mat[0]:
+        calib_str += str(x)
+        calib_str += ' '
+    calib_str += '\n'
+
+    calib_str += 'R0_rect: 1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0 \n'
+
+    velo_to_cam = np.matmul(cam_trans.get_inverse_matrix(), lidar_trans.get_matrix())
+    velo_to_cam = velo_to_cam[0:3, :]
+    velo_to_cam = velo_to_cam.reshape(1, 12).tolist()
+    calib_str += "Tr_velo_to_cam: "
+    for x in velo_to_cam[0]:
+        calib_str += str(x)
+        calib_str += ' '
+
+    with open(file_path, 'w') as calib_file:
+        calib_file.write(calib_str)
+        calib_file.close()
+
+
+def generate_kitti_labels(label_type: str,
+                          truncated: float,
+                          occlusion: float,
+                          alpha: float,
+                          bbox_2d: List,
+                          bbox_3d: o3d.geometry.OrientedBoundingBox,
+                          rotation_y: float):
+
+    label_str = "{} {} {} {} {} {} {} {} {} {} {} {} {} {} {} \n".format(label_type, truncated, occlusion, alpha,
+                                                                         bbox_2d[0], bbox_2d[1],
+                                                                         bbox_2d[2], bbox_2d[3],
+                                                                         bbox_3d.extent[2], bbox_3d.extent[1],
+                                                                         bbox_3d.extent[0],
+                                                                         bbox_3d.center[0], bbox_3d.center[1],
+                                                                         bbox_3d.center[2],
+                                                                         rotation_y)
+    return label_str
+
+
+class KittiObjectLabelTool:
+    def __init__(self, record_name, vehicle_name, rawdata_df: pd.DataFrame):
+        self.record_name = record_name
+        self.vehicle_name = vehicle_name
         self.rawdata_df = rawdata_df
         self.range_max = 100.0
         self.range_min = 1.0
@@ -59,6 +155,7 @@ class KittiObjectLabel:
         # cv2.namedWindow('preview_image', cv2.WINDOW_AUTOSIZE)
         for index, frame in self.rawdata_df.iterrows():
             # vis.clear_geometries()
+            frame_id = "{:0>10d}".format(frame['frame'])
             lidar_trans: Transform = frame['lidar_pose']
             cam_trans: Transform = frame['camera_pose']
             lidar_data = numpy.load(frame['lidar_rawdata_path'])
@@ -76,6 +173,7 @@ class KittiObjectLabel:
             # Convert all bbox to o3d bbox
             bbox_list_3d = [o3d.geometry.OrientedBoundingBox]
             bbox_list_2d = []
+            kitti_labels = []
             for label in objects_labels:
                 # Kitti Object - Type
                 if label.label_type == 'vehicle':
@@ -124,17 +222,12 @@ class KittiObjectLabel:
                 y_min = min(bbox_points_2d_y)
                 y_max = max(bbox_points_2d_y)
                 # cv2.circle(image, (x_max, y_min), radius=1, color=(255, 0, 0), thickness=2)
-
-                truncated = self.cal_truncated(image.shape[0], image.shape[1], [x_min, y_min, x_max, y_max])
+                bbox_2d = [x_min, y_min, x_max, y_max]
+                truncated = self.cal_truncated(image.shape[0], image.shape[1], bbox_2d)
 
                 # For Debug
                 # Draw 2d bbox
                 cv2.rectangle(image, (x_min, y_min), (x_max, y_max), color=(0, 0, 255), thickness=1)
-
-                # T = np.matmul(lidar_trans.get_inverse_matrix(), cam_trans.get_matrix())
-                # cam_coord = o3d.geometry.TriangleMesh.create_coordinate_frame(size=10.0)
-                # cam_coord.rotate(T[0:3, 0:3])
-                # cam_coord.translate(T[0:3, 3])
 
                 # Transform 3d bbox to camera coordinate
                 T_lc = np.matmul(cam_trans.get_inverse_matrix(), lidar_trans.get_matrix())
@@ -144,8 +237,6 @@ class KittiObjectLabel:
                 o3d_bbox.rotate(T_lc[0:3, 0:3], np.array([0, 0, 0]))
                 o3d_bbox.translate(T_lc[0:3, 3])
 
-                cam_coord = o3d.geometry.TriangleMesh.create_coordinate_frame(size=10.0)
-
                 _, rotation_y, _ = transforms3d.euler.mat2euler(o3d_bbox.R)
                 # print(math.degrees(rotation_y))
 
@@ -154,28 +245,28 @@ class KittiObjectLabel:
                 alpha = rotation_y - theta
                 alpha = math.atan2(math.sin(alpha), math.cos(alpha))
 
-                o3d.visualization.draw_geometries([o3d_pcd, o3d_bbox, cam_coord])
+                # cam_coord = o3d.geometry.TriangleMesh.create_coordinate_frame(size=10.0)
+                # o3d.visualization.draw_geometries([o3d_pcd, o3d_bbox, cam_coord])
 
+                kitti_label = generate_kitti_labels(label_type, truncated, occlusion, alpha,
+                                                    bbox_2d, o3d_bbox, rotation_y)
+
+                kitti_labels.append(kitti_label)
                 bbox_list_3d.append(o3d_bbox)
-                bbox_list_2d.append([x_min, y_min, x_max, y_max])
+                bbox_list_2d.append(bbox_2d)
 
-            cv2.imshow('preview_image', image)
+            output_dir = "{}/{}/{}".format(DATASET_PATH, self.record_name, self.vehicle_name)
+
+            write_calib(output_dir, frame_id, lidar_trans, cam_trans, cam_mat)
+            write_label(output_dir, frame_id, kitti_labels)
+            write_image(output_dir, frame_id, image)
+            write_pointcloud(output_dir, frame_id, lidar_data)
+            # cv2.imshow('preview_image', image)
             # vis.add_geometry(o3d_pcd)
             # vis.poll_events()
             # vis.update_renderer()
-            cv2.waitKey(1)
-            time.sleep(0.05)
-
-    # def generate_kitti_labels(self,
-    #                           type: str,
-    #                           bbox_3d_list: o3d.geometry.OrientedBoundingBox,
-    #                           bbox_2d_list: List,
-    #                           lidar_trans: Transform,
-    #                           cam_trans: Transform):
-    #
-    #     truncation = self.cal_truncated()
-    #     label_str = "{} {} {}".format(type, truncation, occlusion, alpha, xmin, ymin, xmax, ymax, height, witdth, length, location, ry)
-    #     return
+            # cv2.waitKey(1)
+            # time.sleep(0.05)
 
     def lidar_point_to_cam(self, point, lidar_trans, cam_trans):
         p = np.append(point, [1.0])
@@ -186,8 +277,8 @@ class KittiObjectLabel:
         return p_c
 
     def project_point_to_image(self,
-                            point_in_cam,
-                            cam_mat: np.array):
+                               point_in_cam,
+                               cam_mat: np.array):
         p_c = point_in_cam
         p_c = p_c[0:3] / p_c[2]
         p_uv = np.matmul(cam_mat, p_c)
@@ -248,8 +339,8 @@ def main():
                                              "vehicle.tesla.model3_1",
                                              "sensor.lidar.ray_cast_4",
                                              "sensor.camera.rgb_2")
-    kitti_obj_labels = KittiObjectLabel(None, rawdata_df)
-    kitti_obj_labels.process()
+    kitti_obj_label_tool = KittiObjectLabelTool("record_2022_0113_1337", "vehicle.tesla.model3_1", rawdata_df)
+    kitti_obj_label_tool.process()
 
 
 if __name__ == '__main__':
