@@ -54,7 +54,8 @@ class Node(object):
 
     # Tick for control step, running before world.tick()
     def tick_controller(self):
-        if self._node_type == NodeType.VEHICLE:
+        if self._node_type == NodeType.VEHICLE or\
+                self._node_type == NodeType.OTHER_VEHICLE:
             self._actor.control_step()
 
     def tick_data_saving(self, frame_id, timestamp):

@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 import math
 import numpy
+import numpy as np
 import transforms3d as tf3d
 import open3d as o3d
 
@@ -47,10 +48,22 @@ class Location(Vector3d):
 
 
 class Rotation:
-    def __init__(self, *, pitch=0.0, yaw=0.0, roll=0.0):
-        self.roll = float(roll)
-        self.pitch = float(pitch)
-        self.yaw = float(yaw)
+    def __init__(self, *, pitch=0.0, yaw=0.0, roll=0.0, radian=False):
+        # RPY in degree
+        if radian:
+            self.roll = math.degrees(float(roll))
+            self.pitch = math.degrees(float(pitch))
+            self.yaw = math.degrees(float(yaw))
+        else:
+            self.roll = roll
+            self.pitch = pitch
+            self.yaw = yaw
+
+    def get_quaternion(self):
+        quaternion = tf3d.euler.euler2quat(math.radians(self.roll),
+                                           math.radians(self.pitch),
+                                           math.radians(self.yaw))
+        return quaternion
 
     def get_rotation_matrix(self):
         return tf3d.euler.euler2mat(math.radians(self.roll),
@@ -71,7 +84,9 @@ class Rotation:
                                   other.get_rotation_matrix())
 
     def __str__(self):
-        return "Rotation(pitch={}, yaw={}, roll={})".format(self.pitch, self.yaw, self.roll)
+        return "Rotation(pitch={}, yaw={}, roll={})".format(self.pitch,
+                                                            self.yaw,
+                                                            self.roll)
 
 
 class Transform:
@@ -96,6 +111,10 @@ class Transform:
     def get_inverse_matrix(self):
         trans_mat = self.get_matrix()
         return numpy.linalg.inv(trans_mat)
+
+    def get_forward_vector(self):
+        f_vec = np.array([1.0, 0.0, 0.0, 1.0]).reshape(4, 1)
+        return np.matmul(self.get_matrix(), f_vec)
 
     def transform(self, point: Location):
         trans_mat = self.get_matrix()

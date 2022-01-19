@@ -6,6 +6,7 @@ import carla
 
 from recorder.actor import Actor
 
+
 class OtherVehicle(Actor):
     def __init__(self,
                  uid,
@@ -17,7 +18,7 @@ class OtherVehicle(Actor):
         self.save_dir = '{}/{}_{}'.format(base_save_dir, self.vehicle_type, self.get_uid())
         self.first_tick = True
         # For vehicle control
-        self.auto_pilot = True
+        self.auto_pilot = False
         self.vehicle_agent = None
 
     def save_to_disk(self, frame_id, timestamp, debug=False):
@@ -31,6 +32,7 @@ class OtherVehicle(Actor):
             self.auto_pilot = True
         else:
             return
+
 
 class Vehicle(Actor):
     def __init__(self,

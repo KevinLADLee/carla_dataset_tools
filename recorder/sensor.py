@@ -19,7 +19,7 @@ class Sensor(Actor):
                  carla_actor: carla.Sensor):
         super(Sensor, self).__init__(uid=uid, name=name, parent=parent, carla_actor=carla_actor)
         self.sensor_type = copy.deepcopy(self.get_type_id())
-        self.save_dir = base_save_dir + '/{}_{}'.format(self.sensor_type, self.get_uid())
+        self.save_dir = base_save_dir + '/{}'.format(name)
         self.queue = Queue()
         weak_self = weakref.ref(self)
         self.carla_actor.listen(lambda sensor_data: Sensor.data_callback(weak_self,

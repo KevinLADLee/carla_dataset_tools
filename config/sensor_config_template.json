@@ -3,7 +3,7 @@
     [
         {
             "type": "sensor.camera.rgb",
-            "name": "rgb_front",
+            "name": "image_2",
             "spawn_point": {"x": 2.0, "y": 0.0, "z": 2.0, "roll": 0.0, "pitch": 0.0, "yaw": 0.0},
             "image_size_x": 1382,
             "image_size_y": 512,
@@ -11,7 +11,7 @@
         },
         {
             "type": "sensor.camera.semantic_segmentation",
-            "name": "semantic_front",
+            "name": "image_2_semantic",
             "spawn_point": {"x": 2.0, "y": 0.0, "z": 2.0, "roll": 0.0, "pitch": 0.0, "yaw": 0.0},
             "image_size_x": 1382,
             "image_size_y": 512,
@@ -19,7 +19,7 @@
         },
         {
             "type": "sensor.lidar.ray_cast",
-            "name": "lidar",
+            "name": "velodyne",
             "spawn_point": {"x": 0.0, "y": 0.0, "z": 2.4, "roll": 0.0, "pitch": 0.0, "yaw": 0.0},
             "range": 100,
             "channels": 64,
@@ -31,7 +31,7 @@
         },
         {
             "type": "sensor.lidar.ray_cast_semantic",
-            "name": "semantic_lidar",
+            "name": "velodyne_semantic",
             "spawn_point": {"x": 0.0, "y": 0.0, "z": 2.4, "roll": 0.0, "pitch": 0.0, "yaw": 0.0},
             "range": 100,
             "channels": 64,
