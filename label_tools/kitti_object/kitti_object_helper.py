@@ -56,7 +56,11 @@ def o3d_bbox_rotation_to_rpy(o3d_bbox: o3d.geometry.OrientedBoundingBox):
     return roll, pitch, yaw
 
 
-def cal_truncated(image_length, image_width, bbox_2d: list):
+def cal_truncated(image_length, image_width, bbox_2d: list) -> float:
+    # Calculate truncated.
+    # from 0 (non-truncated) to 1 (truncated), where
+    # truncated refers to the object leaving image boundaries
+
     # [x_min y_min x_max y_max]
     bbox_2d_in_img = copy.deepcopy(bbox_2d)
     bbox_2d_in_img[0] = max(bbox_2d[0], 0)
@@ -69,6 +73,7 @@ def cal_truncated(image_length, image_width, bbox_2d: list):
     truncated = size1 / size2
     truncated = max(truncated, 0.0)
     truncated = min(truncated, 1.0)
+    truncated = 1.0 - truncated
     return truncated
 
 

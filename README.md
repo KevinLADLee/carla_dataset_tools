@@ -24,6 +24,14 @@ python3 data_recorder.py
 
 All config files are under config folder.
 
+### Data Labeling
+
+#### KITTI Object
+
+```
+python label_tools/kitti_objects_label.py -r record_2022_0119_1303
+```
+
 ### Visualization
 
 For npy pointcloud rawdata, use util/visualize_lidar.py to visualize

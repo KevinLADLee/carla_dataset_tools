@@ -2,14 +2,17 @@
 import glob
 import os.path
 import sys
+
+import cv2
 import pandas as pd
 import numpy as np
 from pathlib import Path
+
 sys.path.append(Path(__file__).parent.parent.as_posix())
 from utils.transform import *
 
 
-def load_lidar_rawdata(path: str):
+def load_lidar_data(path: str):
     lidar_rawdata_path_list = sorted(glob.glob(f"{path}/*.npy"))
     lidar_rawdata_df = pd.DataFrame(columns=['frame', 'lidar_rawdata_path', 'lidar_pose'])
     lidar_poses = pd.read_csv(f"{path}/poses.csv")
@@ -80,3 +83,13 @@ def load_vehicle_pose(path: str) -> pd.DataFrame:
         vehicle_poses.append(pose)
     vehicle_status_df["vehicle_pose"] = vehicle_poses
     return pd.DataFrame(vehicle_status_df, columns=['frame', 'timestamp', 'vehicle_pose'])
+
+
+def read_pointcloud(path: str) -> np.array:
+    pointcloud = np.load(path)
+    return pointcloud
+
+
+def read_image(path: str) -> np.array:
+    image = cv2.imread(path, cv2.IMREAD_UNCHANGED)
+    return image

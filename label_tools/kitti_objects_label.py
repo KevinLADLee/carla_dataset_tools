@@ -8,8 +8,8 @@ from pathlib import Path
 
 sys.path.append(Path(__file__).parent.parent.as_posix())
 from param import RAW_DATA_PATH, DATASET_PATH
-from label_tools.data_loader import *
-from label_tools.kitti_object_helper import *
+from label_tools.kitti_object.kitti_object_data_loader import *
+from label_tools.kitti_object.kitti_object_helper import *
 
 
 def gather_rawdata_to_dataframe(record_name: str, vehicle_name: str, lidar_path: str, camera_path: str):
@@ -20,7 +20,7 @@ def gather_rawdata_to_dataframe(record_name: str, vehicle_name: str, lidar_path:
     object_labels_path_df = load_object_labels("{}/{}/others.world_0".format(RAW_DATA_PATH, record_name))
     rawdata_frames_df = pd.merge(rawdata_frames_df, object_labels_path_df, how='outer', on='frame')
 
-    lidar_rawdata_df = load_lidar_rawdata(f"{RAW_DATA_PATH}/{record_name}/{vehicle_name}/{lidar_path}")
+    lidar_rawdata_df = load_lidar_data(f"{RAW_DATA_PATH}/{record_name}/{vehicle_name}/{lidar_path}")
     rawdata_frames_df = pd.merge(rawdata_frames_df, lidar_rawdata_df, how='outer', on='frame')
 
     camera_rawdata_path_df = load_camera_data(f"{RAW_DATA_PATH}/{record_name}/{vehicle_name}/{camera_path}")
@@ -37,8 +37,6 @@ class KittiObjectLabelTool:
         self.range_max = 150.0
         self.range_min = 1.0
         self.points_min = 10
-        # self.label_df = pd.DataFrame(columns='type')
-        # self.process_pool = ThreadPool()
 
     def process(self):
         start = time.time()
@@ -46,7 +44,7 @@ class KittiObjectLabelTool:
         thread_pool.starmap(self.process_frame, self.rawdata_df.iterrows())
         thread_pool.close()
         thread_pool.join()
-        print("Cost: {:0<10f}s".format(time.time() - start))
+        print("Cost: {:0<3f}s".format(time.time() - start))
 
         # start = time.time()
         # for index, frame in self.rawdata_df.iterrows():
@@ -59,19 +57,19 @@ class KittiObjectLabelTool:
         cam_trans: Transform = frame['camera_pose']
         cam_mat = np.asarray(frame['camera_matrix'])
 
-        image = cv2.imread(frame['camera_rawdata_path'], cv2.IMREAD_UNCHANGED)
+        image = read_image(frame['camera_rawdata_path'])
 
-        lidar_data = numpy.load(frame['lidar_rawdata_path'])
+        pointcloud_raw = read_pointcloud(frame['lidar_rawdata_path'])
         o3d_pcd = o3d.geometry.PointCloud()
-        o3d_pcd.points = o3d.utility.Vector3dVector(lidar_data[:, 0:3])
+        o3d_pcd.points = o3d.utility.Vector3dVector(pointcloud_raw[:, 0:3])
 
         # Load object labels from pickle data
         with open(frame['object_labels_path'], 'rb') as pkl_file:
             objects_labels = pickle.load(pkl_file)
 
-        # Transform 3d bbox to camera coordinate
+        # Transform matrix to transform object from lidar to camera coordinate
         T_lc = np.matmul(cam_trans.get_inverse_matrix(), lidar_trans.get_matrix())
-        # Convert all bbox to o3d bbox
+
         bbox_list_3d = []
         bbox_list_2d = []
         kitti_labels = []
@@ -87,11 +85,8 @@ class KittiObjectLabelTool:
             if not is_valid_distance(lidar_trans.location, label.transform.location):
                 continue
 
+            # Convert object label to open3d bbox type in lidar coordinate
             o3d_bbox = bbox_to_o3d_bbox_in_target_coordinate(label, lidar_trans)
-
-            # Ignore backward vehicles
-            if o3d_bbox.center[0] < 0:
-                continue
 
             # Check lidar points in bbox
             occlusion = cal_occlusion(o3d_pcd, o3d_bbox)
@@ -115,12 +110,15 @@ class KittiObjectLabelTool:
             y_min = min(bbox_points_2d_y)
             y_max = max(bbox_points_2d_y)
             bbox_2d = [x_min, y_min, x_max, y_max]
-
-            truncated = cal_truncated(image.shape[0], image.shape[1], bbox_2d)
-
             # For Debug
             # Draw 2d bbox
             # cv2.rectangle(image, (x_min, y_min), (x_max, y_max), color=(0, 0, 255), thickness=1)
+
+            truncated = cal_truncated(image.shape[0], image.shape[1], bbox_2d)
+
+            # Ignore backward vehicles
+            if o3d_bbox.center[0] < 0:
+                truncated = 1.0
 
             o3d_bbox.rotate(T_lc[0:3, 0:3], np.array([0, 0, 0]))
             o3d_bbox.translate(T_lc[0:3, 3])
@@ -140,6 +138,7 @@ class KittiObjectLabelTool:
             bbox_list_3d.append(o3d_bbox)
             bbox_list_2d.append(bbox_2d)
 
+        # Preview each frame label result
         # o3d_pcd.rotate(T_lc[0:3, 0:3], np.array([0, 0, 0]))
         # o3d_pcd.translate(T_lc[0:3, 3])
         # cam_coord = o3d.geometry.TriangleMesh.create_coordinate_frame(size=10.0)
@@ -153,12 +152,12 @@ class KittiObjectLabelTool:
         #     preview_obj.append(bbox3d)
         # o3d.visualization.draw_geometries(preview_obj)
 
-        output_dir = "{}/{}/{}/training".format(DATASET_PATH, self.record_name, self.vehicle_name)
-
+        # Output dataset in kitti format
+        output_dir = f"{DATASET_PATH}/{self.record_name}/{self.vehicle_name}/kitti_object/training"
         write_calib(output_dir, frame_id, lidar_trans, cam_trans, cam_mat)
         write_label(output_dir, frame_id, kitti_labels)
         write_image(output_dir, frame_id, image)
-        write_pointcloud(output_dir, frame_id, lidar_data)
+        write_pointcloud(output_dir, frame_id, pointcloud_raw)
 
 
 def main():
