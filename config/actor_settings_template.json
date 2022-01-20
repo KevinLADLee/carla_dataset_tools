@@ -3,19 +3,22 @@
     [
         {
             "type": "vehicle.tesla.model3",
-            "name": "vehicle_master",
+            "name": "vehicle.tesla.model3.master",
             "sensors_setting": "sensor_config_template.json",
             "spawn_point": 73
         },
         {
             "type": "vehicle.tesla.model3",
-            "name": "vehicle_master",
+            "sensors_setting": "sensor_config_template.json",
+            "spawn_point": 76
+        },
+        {
+            "type": "vehicle.tesla.model3",
             "sensors_setting": "sensor_config_template.json",
             "spawn_point": 68
         },
         {
             "type": "vehicle.tesla.model3",
-            "name": "vehicle_master",
             "sensors_setting": "sensor_config_template.json",
             "spawn_point": 82
         },
@@ -27,6 +30,6 @@
     ],
     "other_vehicles":
     {
-        "spawn_points": [44, 55, 64, 39]
+        "spawn_points": [44, 55, 64, 39, 58, 10, 95, 3, 13, 100, 5, 26, 25]
     }
 }

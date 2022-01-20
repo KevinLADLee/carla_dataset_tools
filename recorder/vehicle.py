@@ -33,11 +33,12 @@ class OtherVehicle(Actor):
 
     def control_step(self):
         # TODO: Migration with agents.behavior_agent
-        if not self.auto_pilot:
-            self.carla_actor.set_autopilot()
-            self.auto_pilot = True
-        else:
-            return
+        self.carla_actor.set_autopilot()
+        # if not self.auto_pilot:
+        #     self.carla_actor.set_autopilot()
+        #     self.auto_pilot = True
+        # else:
+        #     return
 
 
 class Vehicle(Actor):
@@ -102,8 +103,9 @@ class Vehicle(Actor):
 
     def control_step(self):
         # TODO: Migration with agents.behavior_agent
-        if not self.auto_pilot:
-            self.carla_actor.set_autopilot()
-            self.auto_pilot = True
-        else:
-            return
+        self.carla_actor.set_autopilot()
+        # if not self.auto_pilot:
+        #     self.carla_actor.set_autopilot()
+        #     self.auto_pilot = True
+        # else:
+        #     return
