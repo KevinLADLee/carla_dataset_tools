@@ -2,6 +2,7 @@
 import os
 import json
 import random
+import warnings
 from enum import Enum
 
 import carla
@@ -54,15 +55,38 @@ class Node(object):
 
     # Tick for control step, running before world.tick()
     def tick_controller(self):
-        if self._node_type == NodeType.VEHICLE or\
+        if self._node_type == NodeType.VEHICLE or \
                 self._node_type == NodeType.OTHER_VEHICLE:
             self._actor.control_step()
 
     def tick_data_saving(self, frame_id, timestamp):
         if self.get_node_type() == NodeType.SENSOR \
-                or NodeType.VEHICLE\
+                or NodeType.VEHICLE \
                 or NodeType.WORLD:
             self._actor.save_to_disk(frame_id, timestamp, True)
+
+
+def get_name_from_json(json_info, name_set: set):
+    # Get actor name from json, default to ''.
+    # Actor will generate unique name "[TYPE_ID]_[UID]" later for saving data.
+    try:
+        name = str(json_info.pop("name"))
+    except (KeyError, AttributeError):
+        name = ''
+
+    # If there is a same name in the name set, fallback to default
+    if name != '':
+        if name in name_set:
+            warnings.warn(f"Invalid duplicated name {name}, fallback to default.")
+            name = ''
+        else:
+            name_set.add(name)
+
+    return name
+
+
+def create_spawn_point(x, y, z, roll, pitch, yaw):
+    return transform_to_carla_transform(Transform(Location(x, y, z), Rotation(roll=roll, pitch=pitch, yaw=yaw)))
 
 
 class ActorFactory(object):
@@ -72,6 +96,8 @@ class ActorFactory(object):
         self.blueprint_lib = self.world.get_blueprint_library()
         self.spawn_points = self.world.get_map().get_spawn_points()
         self.base_save_dir = base_save_dir
+        self.v2x_layer_name_set = set()
+        self.sensor_layer_name_set = set()
 
     def create_actor_tree(self, actor_config_file):
         assert (self.base_save_dir is not None)
@@ -97,8 +123,9 @@ class ActorFactory(object):
                     sensor_info_file = actor_info["sensors_setting"]
                     with open("{}/config/{}".format(ROOT_PATH, sensor_info_file)) as sensor_handle:
                         sensors_setting = json.loads(sensor_handle.read())
+                        sensor_name_set = set()
                         for sensor_info in sensors_setting["sensors"]:
-                            sensor_node = self.create_sensor_node(sensor_info, node.get_actor())
+                            sensor_node = self.create_sensor_node(sensor_info, node.get_actor(), sensor_name_set)
                             node.add_child(sensor_node)
 
         other_vehicle_info = json_actors["other_vehicles"]
@@ -108,21 +135,20 @@ class ActorFactory(object):
         return root
 
     def create_world_node(self):
-        world_actor = WorldActor(uid=self._uid_count,
+        world_actor = WorldActor(uid=self.generate_uid(),
                                  carla_world=self.world,
                                  base_save_dir=self.base_save_dir)
-        self._uid_count += 1
         world_node = Node(world_actor, NodeType.WORLD)
         return world_node
 
     def create_vehicle_node(self, actor_info):
         vehicle_type = actor_info["type"]
-        vehicle_name = actor_info["name"]
+        vehicle_name = get_name_from_json(actor_info, self.v2x_layer_name_set)
         spawn_point = actor_info["spawn_point"]
         if type(spawn_point) is int:
             transform = self.spawn_points[spawn_point]
         else:
-            transform = self.create_spawn_point(
+            transform = create_spawn_point(
                 spawn_point.pop("x", 0.0),
                 spawn_point.pop("y", 0.0),
                 spawn_point.pop("z", 0.0),
@@ -131,12 +157,12 @@ class ActorFactory(object):
                 spawn_point.pop("yaw", 0.0))
         blueprint = self.blueprint_lib.find(vehicle_type)
         carla_actor = self.world.spawn_actor(blueprint, transform)
-        vehicle_object = Vehicle(uid=self.get_uid_count(),
+        print(vehicle_name)
+        vehicle_object = Vehicle(uid=self.generate_uid(),
                                  name=vehicle_name,
                                  base_save_dir=self.base_save_dir,
                                  carla_actor=carla_actor)
         vehicle_node = Node(vehicle_object, NodeType.VEHICLE)
-        self._uid_count += 1
         return vehicle_node
 
     def create_other_vehicles(self, other_vehicles_info):
@@ -147,8 +173,8 @@ class ActorFactory(object):
             bp = random.choice(blueprints)
             transform = self.spawn_points[spawn_point]
             carla_actor = self.world.spawn_actor(bp, transform)
-            other_vehicle_object = OtherVehicle(uid=self.get_uid_count(),
-                                                name=f'other_vehicle_{self.get_uid_count()}',
+            other_vehicle_object = OtherVehicle(uid=self.generate_uid(),
+                                                name='',
                                                 base_save_dir="/tmp",
                                                 carla_actor=carla_actor)
             other_vehicle_node = Node(other_vehicle_object, NodeType.OTHER_VEHICLE)
@@ -156,12 +182,12 @@ class ActorFactory(object):
         return other_vehicle_nodes
 
     def create_infrastructure_node(self, actor_info):
-        infrastructure_name = actor_info["name"]
+        infrastructure_name = get_name_from_json(actor_info, self.v2x_layer_name_set)
         spawn_point = actor_info["spawn_point"]
         if type(spawn_point) is int:
             transform = self.spawn_points[spawn_point]
         else:
-            transform = self.create_spawn_point(
+            transform = create_spawn_point(
                 spawn_point.pop("x", 0.0),
                 spawn_point.pop("y", 0.0),
                 spawn_point.pop("z", 0.0),
@@ -169,19 +195,18 @@ class ActorFactory(object):
                 0,
                 0,
             )
-        infrastructure_object = Infrastructure(uid=self.get_uid_count(),
+        infrastructure_object = Infrastructure(uid=self.generate_uid(),
                                                name=infrastructure_name,
                                                base_save_dir=self.base_save_dir,
                                                transform=transform)
         infrastructure_node = Node(infrastructure_object, NodeType.INFRASTRUCTURE)
-        self._uid_count += 1
         return infrastructure_node
 
-    def create_sensor_node(self, sensor_info: dict, parent_actor: PseudoActor):
+    def create_sensor_node(self, sensor_info: dict, parent_actor: PseudoActor, sensor_name_set: set):
         sensor_type = str(sensor_info.pop("type"))
-        sensor_name = str(sensor_info.pop("name"))
+        sensor_name = get_name_from_json(sensor_info, sensor_name_set)
         spawn_point = sensor_info.pop("spawn_point")
-        sensor_transform = self.create_spawn_point(
+        sensor_transform = create_spawn_point(
             spawn_point.pop("x", 0.0),
             spawn_point.pop("y", 0.0),
             spawn_point.pop("z", 0.0),
@@ -200,37 +225,37 @@ class ActorFactory(object):
 
         sensor_actor = None
         if sensor_type == 'sensor.camera.rgb':
-            sensor_actor = RgbCamera(uid=self.get_uid_count(),
+            sensor_actor = RgbCamera(uid=self.generate_uid(),
                                      name=sensor_name,
                                      base_save_dir=parent_actor.get_save_dir(),
                                      carla_actor=carla_actor,
                                      parent=parent_actor)
         elif sensor_type == 'sensor.camera.depth':
-            sensor_actor = DepthCamera(uid=self.get_uid_count(),
+            sensor_actor = DepthCamera(uid=self.generate_uid(),
                                        name=sensor_name,
                                        base_save_dir=parent_actor.get_save_dir(),
                                        carla_actor=carla_actor,
                                        parent=parent_actor)
         elif sensor_type == 'sensor.camera.semantic_segmentation':
-            sensor_actor = SemanticSegmentationCamera(uid=self.get_uid_count(),
+            sensor_actor = SemanticSegmentationCamera(uid=self.generate_uid(),
                                                       name=sensor_name,
                                                       base_save_dir=parent_actor.get_save_dir(),
                                                       carla_actor=carla_actor,
                                                       parent=parent_actor)
         elif sensor_type == 'sensor.lidar.ray_cast':
-            sensor_actor = Lidar(uid=self.get_uid_count(),
+            sensor_actor = Lidar(uid=self.generate_uid(),
                                  name=sensor_name,
                                  base_save_dir=parent_actor.get_save_dir(),
                                  carla_actor=carla_actor,
                                  parent=parent_actor)
         elif sensor_type == 'sensor.lidar.ray_cast_semantic':
-            sensor_actor = SemanticLidar(uid=self.get_uid_count(),
+            sensor_actor = SemanticLidar(uid=self.generate_uid(),
                                          name=sensor_name,
                                          base_save_dir=parent_actor.get_save_dir(),
                                          carla_actor=carla_actor,
                                          parent=parent_actor)
         elif sensor_type == 'sensor.other.radar':
-            sensor_actor = Radar(uid=self.get_uid_count(),
+            sensor_actor = Radar(uid=self.generate_uid(),
                                  name=sensor_name,
                                  base_save_dir=parent_actor.get_save_dir(),
                                  carla_actor=carla_actor,
@@ -239,11 +264,9 @@ class ActorFactory(object):
             print("Unsupported sensor type: {}".format(sensor_type))
             raise AttributeError
         sensor_node = Node(sensor_actor, NodeType.SENSOR)
-        self._uid_count += 1
         return sensor_node
 
-    def get_uid_count(self):
-        return self._uid_count
-
-    def create_spawn_point(self, x, y, z, roll, pitch, yaw):
-        return transform_to_carla_transform(Transform(Location(x, y, z), Rotation(roll=roll, pitch=pitch, yaw=yaw)))
+    def generate_uid(self):
+        uid = self._uid_count
+        self._uid_count += 1
+        return uid

@@ -5,6 +5,8 @@ from utils.transform import *
 
 class PseudoActor(object):
     def __init__(self, uid, name, parent):
+        if name == '':
+            name = f"{self.get_type_id()}_{uid}"
         self.uid = uid
         self.name = name
         self.parent = parent
@@ -33,10 +35,10 @@ class PseudoActor(object):
 
 class Actor(PseudoActor):
     def __init__(self, uid, name, parent, carla_actor: carla.Actor):
+        self.carla_actor = carla_actor
         super(Actor, self).__init__(uid=uid,
                                     name=name,
                                     parent=parent)
-        self.carla_actor = carla_actor
 
     def destroy(self):
         # print("Destroying: uid={} name={} carla_id={}".format(self.uid, self.name, self.carla_actor.id))

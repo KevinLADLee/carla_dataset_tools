@@ -11,7 +11,7 @@ class Infrastructure(PseudoActor):
                  transform: carla.Transform):
         super().__init__(uid=uid, name=name, parent=None)
         self.carla_transform = transform
-        self.save_dir = '{}/{}_{}'.format(base_save_dir, self.get_type_id(), self.get_uid())
+        self.save_dir = '{}/{}'.format(base_save_dir, self.name)
 
     def get_carla_transform(self):
         return self.carla_transform

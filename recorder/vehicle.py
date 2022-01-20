@@ -21,9 +21,15 @@ class OtherVehicle(Actor):
         self.auto_pilot = False
         self.vehicle_agent = None
 
+    def get_type_id(self):
+        return 'others.other_vehicle'
+
     def save_to_disk(self, frame_id, timestamp, debug=False):
         # Other vehicle not saving data
         return
+
+    def get_save_dir(self):
+        return self.save_dir
 
     def control_step(self):
         # TODO: Migration with agents.behavior_agent
@@ -42,7 +48,7 @@ class Vehicle(Actor):
                  carla_actor: carla.Sensor):
         super().__init__(uid=uid, name=name, parent=None, carla_actor=carla_actor)
         self.vehicle_type = copy.deepcopy(carla_actor.type_id)
-        self.save_dir = '{}/{}_{}'.format(base_save_dir, self.vehicle_type, self.get_uid())
+        self.save_dir = '{}/{}'.format(base_save_dir, self.name)
         self.first_tick = True
         # For vehicle control
         self.auto_pilot = False
