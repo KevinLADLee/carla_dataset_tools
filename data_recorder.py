@@ -26,6 +26,7 @@ class DataRecorder:
         self.carla_client = carla.Client(self.host, self.port)
         self.carla_client.set_timeout(2.0)
         self.world = self._get_world()
+        self.tm = self.carla_client.get_trafficmanager()
         self.debug_helper = self.world.debug
         self.record_name = None
         self.base_save_dir = None
@@ -68,6 +69,7 @@ class DataRecorder:
             settings.max_substep_delta_time = world_settings["max_substep_delta_time"]
             settings.max_substeps = world_settings["max_substeps"]
             self.world.apply_settings(settings)
+            self.tm.set_synchronous_mode(True)
 
             self.total_frames = json_settings["total_frames"]
             self.set_traffic_light_time(json_settings["traffic_light_setting"])

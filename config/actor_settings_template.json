@@ -30,6 +30,7 @@
     ],
     "other_vehicles":
     {
+        "vehicle_num": 50,
         "spawn_points": [44, 55, 64, 39, 58, 10, 95, 3, 13, 100, 5, 26, 25]
     }
 }

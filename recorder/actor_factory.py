@@ -167,18 +167,45 @@ class ActorFactory(object):
 
     def create_other_vehicles(self, other_vehicles_info):
         blueprints = self.blueprint_lib.filter('vehicle.*')
-        spawn_points = other_vehicles_info['spawn_points']
         other_vehicle_nodes = []
-        for spawn_point in spawn_points:
-            bp = random.choice(blueprints)
-            transform = self.spawn_points[spawn_point]
-            carla_actor = self.world.spawn_actor(bp, transform)
-            other_vehicle_object = OtherVehicle(uid=self.generate_uid(),
-                                                name='',
-                                                base_save_dir="/tmp",
-                                                carla_actor=carla_actor)
-            other_vehicle_node = Node(other_vehicle_object, NodeType.OTHER_VEHICLE)
-            other_vehicle_nodes.append(other_vehicle_node)
+        try:
+            spawn_points = other_vehicles_info['spawn_points']
+        except (KeyError, ValueError):
+            spawn_points = None
+
+        if spawn_points:
+            for spawn_point in spawn_points:
+                bp = random.choice(blueprints)
+                transform = self.spawn_points[spawn_point]
+                carla_actor = self.world.spawn_actor(bp, transform)
+                other_vehicle_object = OtherVehicle(uid=self.generate_uid(),
+                                                    name='',
+                                                    base_save_dir="/tmp",
+                                                    carla_actor=carla_actor)
+                other_vehicle_node = Node(other_vehicle_object, NodeType.OTHER_VEHICLE)
+                other_vehicle_nodes.append(other_vehicle_node)
+
+        try:
+            vehicle_num = other_vehicles_info['vehicle_num']
+        except (KeyError, ValueError):
+            vehicle_num = None
+        if vehicle_num:
+            for i in range(vehicle_num):
+                bp = random.choice(blueprints)
+                all_spawn_points = self.world.get_map().get_spawn_points()
+                try:
+                    carla_actor = self.world.spawn_actor(bp, random.choice(all_spawn_points))
+                except RuntimeError:
+                    i -= 1
+                    continue
+
+                other_vehicle_object = OtherVehicle(uid=self.generate_uid(),
+                                                    name='',
+                                                    base_save_dir="/tmp",
+                                                    carla_actor=carla_actor)
+                other_vehicle_node = Node(other_vehicle_object, NodeType.OTHER_VEHICLE)
+                other_vehicle_nodes.append(other_vehicle_node)
+
         return other_vehicle_nodes
 
     def create_infrastructure_node(self, actor_info):

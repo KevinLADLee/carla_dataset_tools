@@ -147,24 +147,34 @@ def write_calib(output_dir, frame_id, lidar_trans: Transform, cam_trans: Transfo
 
     camera_mat = np.concatenate((camera_mat, np.array([[0.0], [0.0], [0.0]])), axis=1)
     camera_mat = camera_mat.reshape(1, 12)
-    calib_str = "P2: "
+    camera_mat_str = ""
     for x in camera_mat[0]:
-        calib_str += str(x)
-        calib_str += ' '
-    calib_str += '\n'
+        camera_mat_str += str(x)
+        camera_mat_str += ' '
+    camera_mat_str += '\n'
 
-    calib_str += "R0_rect: 1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0 \n"
+    # TODO: Fake P0,P1,P3
+    calib_str = list()
+    calib_str.append(f"P0: {camera_mat_str}")
+    calib_str.append(f"P1: {camera_mat_str}")
+    calib_str.append(f"P2: {camera_mat_str}")
+    calib_str.append(f"P3: {camera_mat_str}")
+
+    calib_str.append("R0_rect: 1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0 \n")
 
     velo_to_cam = np.matmul(cam_trans.get_inverse_matrix(), lidar_trans.get_matrix())
     velo_to_cam = velo_to_cam[0:3, :]
     velo_to_cam = velo_to_cam.reshape(1, 12).tolist()
-    calib_str += "Tr_velo_to_cam: "
+    velo_to_cam_str = "Tr_velo_to_cam: "
     for x in velo_to_cam[0]:
-        calib_str += str(x)
-        calib_str += ' '
+        velo_to_cam_str += str(x)
+        velo_to_cam_str += ' '
+    velo_to_cam_str += '\n'
+
+    calib_str.append(velo_to_cam_str)
 
     with open(file_path, 'w') as calib_file:
-        calib_file.write(calib_str)
+        calib_file.writelines(calib_str)
         calib_file.close()
 
 

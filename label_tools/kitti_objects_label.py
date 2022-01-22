@@ -29,6 +29,20 @@ def gather_rawdata_to_dataframe(record_name: str, vehicle_name: str, lidar_path:
     return rawdata_frames_df
 
 
+def generate_image_sets(path_to_kitti_object: str):
+    calib_data_list = sorted(glob.glob(f"{path_to_kitti_object}/training/calib/*.txt"))
+    image_sets = []
+    for item in calib_data_list:
+        frame_id = os.path.splitext(os.path.split(item)[-1])[0]
+        image_sets.append(f"{frame_id}\n")
+    image_sets_dir = f"{path_to_kitti_object}/ImageSets"
+    os.makedirs(image_sets_dir, exist_ok=True)
+    with open(f"{image_sets_dir}/train.txt", 'w') as file:
+        file.writelines(image_sets)
+    with open(f"{image_sets_dir}/val.txt", 'w') as file:
+        file.writelines(image_sets)
+
+
 class KittiObjectLabelTool:
     def __init__(self, record_name, vehicle_name, rawdata_df: pd.DataFrame):
         self.record_name = record_name
@@ -44,7 +58,10 @@ class KittiObjectLabelTool:
         thread_pool.starmap(self.process_frame, self.rawdata_df.iterrows())
         thread_pool.close()
         thread_pool.join()
+
+        generate_image_sets(f"{DATASET_PATH}/{self.record_name}/{self.vehicle_name}/kitti_object")
         print("Cost: {:0<3f}s".format(time.time() - start))
+
 
         # start = time.time()
         # for index, frame in self.rawdata_df.iterrows():
