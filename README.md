@@ -52,3 +52,16 @@ python3 utils/visualize_lidar.py --type [lidar / semantic_lidar / radar] --sourc
 
 * [CARLA Ros Bridge](https://github.com/carla-simulator/ros-bridge)
 * [CARLA_INVS](https://github.com/zijianzhang/CARLA_INVS)
+
+## Citation
+
+```latex
+@article{FLCAV,
+  title={Federated learning meets connected autonomous vehicle perception: Principles and implementation},
+  author={Shuai Wang and Chengyang Li and Qi Hao and Derrick Wing Kwan Ng and Yonina C. Eldar and H. Vincent Poor},
+  journal={submitted to IEEE for possible publication},
+  year={2021},
+  publisher={IEEE}
+}
+```
+
