@@ -37,15 +37,22 @@ def project_point_to_image(point_in_cam,
     p_uv = p_uv[0:2].astype(int)
     return p_uv
 
+
+def transform_o3d_bbox(o3d_bbox: o3d.geometry.OrientedBoundingBox, transform_mat: np.array):
+    o3d_bbox_vps = np.asarray(o3d_bbox.get_box_points())
+    o3d_bbox_vps = np.concatenate((o3d_bbox_vps, np.ones((8, 1))), axis=1).transpose()
+    o3d_bbox_vps = np.matmul(transform_mat, o3d_bbox_vps).transpose()
+    o3d_vps_new = o3d.utility.Vector3dVector(o3d_bbox_vps[:, 0:3])
+    o3d_bbox = o3d.geometry.OrientedBoundingBox.create_from_points(o3d_vps_new)
+    return o3d_bbox
+
+
 def bbox_to_o3d_bbox_in_target_coordinate(label: ObjectLabel, target_transform: Transform):
     world_to_target = target_transform.get_inverse_matrix()
     label_to_world = label.transform.get_matrix()
     label_in_target = np.matmul(world_to_target, label_to_world)
-    t_vec = label_in_target[0:3, -1]
-    r_mat = label_in_target[0:3, 0:3]
     o3d_bbox = bbox_to_o3d_bbox(label.bounding_box)
-    o3d_bbox.translate(t_vec)
-    o3d_bbox.rotate(r_mat)
+    o3d_bbox = transform_o3d_bbox(o3d_bbox, label_in_target)
     o3d_bbox.color = np.array([1.0, 0, 0])
     return o3d_bbox
 
@@ -185,7 +192,6 @@ def generate_kitti_labels(label_type: str,
                           bbox_2d: list,
                           bbox_3d: o3d.geometry.OrientedBoundingBox,
                           rotation_y: float):
-
     # Note: Kitti Object 3d bbox location is top-plane-center, not the bbox center
     label_str = "{} {} {} {} {} {} {} {} {} {} {} {} {} {} {} \n".format(label_type, truncated, occlusion, alpha,
                                                                          bbox_2d[0], bbox_2d[1],
