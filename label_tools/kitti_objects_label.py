@@ -54,20 +54,20 @@ class KittiObjectLabelTool:
         self.points_min = 10
 
     def process(self):
-        # start = time.time()
-        # thread_pool = ThreadPool()
-        # thread_pool.starmap(self.process_frame, self.rawdata_df.iterrows())
-        # thread_pool.close()
-        # thread_pool.join()
-        #
-        # generate_image_sets(f"{DATASET_PATH}/{self.record_name}/{self.vehicle_name}/kitti_object")
-        # print("Cost: {:0<3f}s".format(time.time() - start))
-
-
         start = time.time()
-        for index, frame in self.rawdata_df.iterrows():
-            self.process_frame(index, frame)
-        print("Cost: {:0<3f}s".format(time.time()-start))
+        thread_pool = ThreadPool()
+        thread_pool.starmap(self.process_frame, self.rawdata_df.iterrows())
+        thread_pool.close()
+        thread_pool.join()
+
+        generate_image_sets(f"{DATASET_PATH}/{self.record_name}/{self.vehicle_name}/kitti_object")
+        print("Cost: {:0<3f}s".format(time.time() - start))
+
+
+        # start = time.time()
+        # for index, frame in self.rawdata_df.iterrows():
+        #     self.process_frame(index, frame)
+        # print("Cost: {:0<3f}s".format(time.time()-start))
 
     def process_frame(self, index, frame):
         frame_id = "{:0>6d}".format(frame['frame'])
