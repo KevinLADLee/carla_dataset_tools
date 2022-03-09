@@ -39,11 +39,8 @@ def project_point_to_image(point_in_cam,
 
 
 def transform_o3d_bbox(o3d_bbox: o3d.geometry.OrientedBoundingBox, transform_mat: np.array):
-    o3d_bbox_vps = np.asarray(o3d_bbox.get_box_points())
-    o3d_bbox_vps = np.concatenate((o3d_bbox_vps, np.ones((8, 1))), axis=1).transpose()
-    o3d_bbox_vps = np.matmul(transform_mat, o3d_bbox_vps).transpose()
-    o3d_vps_new = o3d.utility.Vector3dVector(o3d_bbox_vps[:, 0:3])
-    o3d_bbox = o3d.geometry.OrientedBoundingBox.create_from_points(o3d_vps_new)
+    o3d_bbox.rotate(transform_mat[0:3, 0:3], np.array([0, 0, 0]))
+    o3d_bbox.translate(transform_mat[0:3, 3])
     return o3d_bbox
 
 
@@ -160,7 +157,6 @@ def write_calib(output_dir, frame_id, lidar_trans: Transform, cam_trans: Transfo
         camera_mat_str += ' '
     camera_mat_str += '\n'
 
-    # TODO: Fake P0,P1,P3
     calib_str = list()
     calib_str.append(f"P0: {camera_mat_str}")
     calib_str.append(f"P1: {camera_mat_str}")

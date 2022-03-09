@@ -4,6 +4,7 @@ import numpy
 import numpy as np
 import transforms3d as tf3d
 import open3d as o3d
+import transforms3d.euler
 
 
 class Vector3d(object):
@@ -100,6 +101,22 @@ class Transform:
         location_dict.update(rotation_dict)
         return location_dict
 
+    @staticmethod
+    def create_transform_from_matrix(trans_mat: np.array):
+        trans_vec = trans_mat[0:3, 3]
+        rot_mat = trans_mat[0:3, 0:3]
+        r, p, y = transforms3d.euler.mat2euler(rot_mat)
+        location = Location(trans_vec[0], trans_vec[1], trans_vec[2])
+        rotation = Rotation(roll=math.degrees(r), yaw=math.degrees(y), pitch=math.degrees(p))
+        return Transform(location, rotation)
+
+    @staticmethod
+    def create_transform_from_Rt(r_mat: np.array, t_vec: np.array):
+        r, p, y = transforms3d.euler.mat2euler(r_mat)
+        location = Location(t_vec[0], t_vec[1], t_vec[2])
+        rotation = Rotation(roll=math.degrees(r), yaw=math.degrees(y), pitch=math.degrees(p))
+        return Transform(location, rotation)
+
     def get_matrix(self):
         t_vec = self.location.get_vector()
         r_mat = self.rotation.get_rotation_matrix()
@@ -114,7 +131,19 @@ class Transform:
 
     def get_forward_vector(self):
         f_vec = np.array([1.0, 0.0, 0.0, 1.0]).reshape(4, 1)
-        return np.matmul(self.get_matrix(), f_vec)
+        f_vec_raw = np.matmul(self.get_matrix(), f_vec)
+        norm = np.linalg.norm(f_vec_raw)
+        if norm != 0:
+            f_vec_raw /= norm
+        return f_vec_raw[0:3]
+
+    def get_up_vector(self):
+        u_vec = np.array([0.0, 0.0, 1.0, 1.0]).reshape(4, 1)
+        u_vec_raw = np.matmul(self.get_matrix(), u_vec)
+        norm = np.linalg.norm(u_vec_raw)
+        if norm != 0:
+            u_vec_raw /= norm
+        return u_vec_raw[0:3]
 
     def transform(self, point: Location):
         trans_mat = self.get_matrix()
