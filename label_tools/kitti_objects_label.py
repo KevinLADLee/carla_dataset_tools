@@ -143,7 +143,7 @@ class KittiObjectLabelTool:
 
             o3d_bbox = bbox_to_o3d_bbox_in_target_coordinate(label, cam_trans)
 
-            rotation_y = -math.radians(label.transform.rotation.yaw - cam_trans.rotation.pitch) % math.pi
+            rotation_y = -math.radians(label.transform.rotation.yaw - cam_trans.rotation.yaw) % math.pi
 
             bbox_center = np.asarray(o3d_bbox.center)
             theta = math.atan2(-bbox_center[0], bbox_center[2])
