@@ -1,10 +1,13 @@
 #!/usr/bin/python3
 import argparse
+import math
 import pickle
 import sys
 import time
 from multiprocessing.pool import Pool as ThreadPool
 from pathlib import Path
+
+import numpy as np
 
 sys.path.append(Path(__file__).parent.parent.as_posix())
 from param import RAW_DATA_PATH, DATASET_PATH
@@ -53,20 +56,21 @@ class KittiObjectLabelTool:
         self.points_min = 10
 
     def process(self):
-        start = time.time()
-        thread_pool = ThreadPool()
-        thread_pool.starmap(self.process_frame, self.rawdata_df.iterrows())
-        thread_pool.close()
-        thread_pool.join()
+        debug = False
+        if not debug:
+            start = time.time()
+            thread_pool = ThreadPool()
+            thread_pool.starmap(self.process_frame, self.rawdata_df.iterrows())
+            thread_pool.close()
+            thread_pool.join()
 
-        generate_image_sets(f"{DATASET_PATH}/{self.record_name}/{self.vehicle_name}/kitti_object")
-        print("Cost: {:0<3f}s".format(time.time() - start))
-
-
-        # start = time.time()
-        # for index, frame in self.rawdata_df.iterrows():
-        #     self.process_frame(index, frame)
-        # print("Cost: {:0<3f}s".format(time.time()-start))
+            generate_image_sets(f"{DATASET_PATH}/{self.record_name}/{self.vehicle_name}/kitti_object")
+            print("Cost: {:0<3f}s".format(time.time() - start))
+        else:
+            start = time.time()
+            for index, frame in self.rawdata_df.iterrows():
+                self.process_frame(index, frame)
+            print("Cost: {:0<3f}s".format(time.time()-start))
 
     def process_frame(self, index, frame):
         frame_id = "{:0>6d}".format(frame['frame'])
@@ -137,11 +141,10 @@ class KittiObjectLabelTool:
             if o3d_bbox.center[0] < 0:
                 truncated = 1.0
 
-            o3d_bbox.rotate(T_lc[0:3, 0:3], np.array([0, 0, 0]))
-            o3d_bbox.translate(T_lc[0:3, 3])
+            o3d_bbox = bbox_to_o3d_bbox_in_target_coordinate(label, cam_trans)
 
-            _, rotation_y, _ = o3d_bbox_rotation_to_rpy(o3d_bbox)
-            # print(math.degrees(rotation_y))
+            rotation_y = -math.radians(label.transform.rotation.yaw - cam_trans.rotation.yaw)
+            rotation_y = math.atan2(math.sin(rotation_y), math.cos(rotation_y))
 
             bbox_center = np.asarray(o3d_bbox.center)
             theta = math.atan2(-bbox_center[0], bbox_center[2])
@@ -156,6 +159,8 @@ class KittiObjectLabelTool:
             bbox_list_2d.append(bbox_2d)
 
         # Preview each frame label result
+        # if index < 35:
+        #     return
         # o3d_pcd.rotate(T_lc[0:3, 0:3], np.array([0, 0, 0]))
         # o3d_pcd.translate(T_lc[0:3, 3])
         # cam_coord = o3d.geometry.TriangleMesh.create_coordinate_frame(size=10.0)
@@ -165,8 +170,10 @@ class KittiObjectLabelTool:
         # for bbox3d in bbox_list_3d:
         #     center = np.asarray(bbox3d.center)
         #     box_coord = o3d.geometry.TriangleMesh.create_coordinate_frame(origin=center)
+        #     box_coord.rotate(bbox3d.R)
         #     preview_obj.append(box_coord)
         #     preview_obj.append(bbox3d)
+        # print(frame_id)
         # o3d.visualization.draw_geometries(preview_obj)
 
         # Output dataset in kitti format
