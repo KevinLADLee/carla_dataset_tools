@@ -1,5 +1,6 @@
 {
-    "total_frames": 3000,
+    "frame_total": 3000,
+    "frame_step": 1,
     "map": "Town02",
     "spectator_pose": {"x": 100, "y": -150.0, "z": 150, "roll": 0, "pitch": 60.0, "yaw": -90.0},
     "world_settings":

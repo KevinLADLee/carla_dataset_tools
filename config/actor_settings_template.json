@@ -31,7 +31,7 @@
             "type": "infrastructure",
             "name": "infra_t_junction",
             "sensors_setting": "sensor_config_infrastructure_template.json",
-            "spawn_point": {"x": 40, "y": -240, "z": 4.0}
+            "spawn_point": {"x": 41, "y": -240, "z": 2.7}
         }
     ],
     "other_vehicles":
