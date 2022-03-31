@@ -37,15 +37,19 @@ def project_point_to_image(point_in_cam,
     p_uv = p_uv[0:2].astype(int)
     return p_uv
 
+
+def transform_o3d_bbox(o3d_bbox: o3d.geometry.OrientedBoundingBox, transform_mat: np.array):
+    o3d_bbox.rotate(transform_mat[0:3, 0:3], np.array([0, 0, 0]))
+    o3d_bbox.translate(transform_mat[0:3, 3])
+    return o3d_bbox
+
+
 def bbox_to_o3d_bbox_in_target_coordinate(label: ObjectLabel, target_transform: Transform):
     world_to_target = target_transform.get_inverse_matrix()
     label_to_world = label.transform.get_matrix()
     label_in_target = np.matmul(world_to_target, label_to_world)
-    t_vec = label_in_target[0:3, -1]
-    r_mat = label_in_target[0:3, 0:3]
     o3d_bbox = bbox_to_o3d_bbox(label.bounding_box)
-    o3d_bbox.translate(t_vec)
-    o3d_bbox.rotate(r_mat)
+    o3d_bbox = transform_o3d_bbox(o3d_bbox, label_in_target)
     o3d_bbox.color = np.array([1.0, 0, 0])
     return o3d_bbox
 
@@ -153,7 +157,6 @@ def write_calib(output_dir, frame_id, lidar_trans: Transform, cam_trans: Transfo
         camera_mat_str += ' '
     camera_mat_str += '\n'
 
-    # TODO: Fake P0,P1,P3
     calib_str = list()
     calib_str.append(f"P0: {camera_mat_str}")
     calib_str.append(f"P1: {camera_mat_str}")
@@ -185,7 +188,6 @@ def generate_kitti_labels(label_type: str,
                           bbox_2d: list,
                           bbox_3d: o3d.geometry.OrientedBoundingBox,
                           rotation_y: float):
-
     # Note: Kitti Object 3d bbox location is top-plane-center, not the bbox center
     label_str = "{} {} {} {} {} {} {} {} {} {} {} {} {} {} {} \n".format(label_type, truncated, occlusion, alpha,
                                                                          bbox_2d[0], bbox_2d[1],

@@ -24,7 +24,7 @@ class DataRecorder:
         self.host = args.host
         self.port = args.port
         self.carla_client = carla.Client(self.host, self.port)
-        self.carla_client.set_timeout(2.0)
+        self.carla_client.set_timeout(10.0)
         self.world = self._get_world()
         self.tm = self.carla_client.get_trafficmanager()
         self.debug_helper = self.world.debug
