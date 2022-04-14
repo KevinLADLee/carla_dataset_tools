@@ -119,7 +119,7 @@ def write_image(output_path: str, frame_id: str, image_rgb: np.array):
 
 
 def write_label(output_path: str, frame_id: str, labels: list):
-    label_dir = f"{output_path}/yolo_dataset/images/train"
+    label_dir = f"{output_path}/yolo_dataset/labels/train"
     os.makedirs(label_dir, exist_ok=True)
     with open(f"{label_dir}/{frame_id}.txt", "w") as f:
         for label in labels:

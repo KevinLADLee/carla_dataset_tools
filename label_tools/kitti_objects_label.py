@@ -66,12 +66,21 @@ class KittiObjectLabelTool:
             thread_pool.close()
             thread_pool.join()
 
-            generate_image_sets(f"{DATASET_PATH}/{self.record_name}/{self.vehicle_name}/kitti_object")
+            if self.output_dir is '':
+                output_dir = f"{DATASET_PATH}/{self.record_name}/{self.vehicle_name}/kitti_object"
+            else:
+                output_dir = f"{DATASET_PATH}/{self.output_dir}/kitti_object"
+            generate_image_sets(output_dir)
             print("Cost: {:0<3f}s".format(time.time() - start))
         else:
             start = time.time()
             for index, frame in self.rawdata_df.iterrows():
                 self.process_frame(index, frame)
+            if self.output_dir is '':
+                output_dir = f"{DATASET_PATH}/{self.record_name}/{self.vehicle_name}/kitti_object"
+            else:
+                output_dir = f"{DATASET_PATH}/{self.output_dir}/kitti_object"
+            generate_image_sets(output_dir)
             print("Cost: {:0<3f}s".format(time.time()-start))
 
     def process_frame(self, index, frame):
