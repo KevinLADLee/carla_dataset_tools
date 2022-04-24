@@ -62,16 +62,22 @@ class Actor(PseudoActor):
         self.carla_actor.set_transform(trans)
 
     def get_acceleration(self) -> Vector3d:
-        acc = self.carla_actor.get_acceleration()
-        return carla_vec3d_to_vec3d(acc)
+        acc_world = carla_vec3d_to_vec3d(self.carla_actor.get_acceleration())
+        trans = self.get_transform()
+        trans.location = Location(0, 0, 0)
+        acc_vehicle = trans.inv_transform(acc_world)
+        return acc_vehicle
 
     def get_velocity(self) -> Vector3d:
         """
         Get actor velocity in Vector3D(vx, vy, vz). It it in Right-Hand coordinate.
         :return: Vector3D(vx, vy, vz)
         """
-        vel = self.carla_actor.get_velocity()
-        return carla_vec3d_to_vec3d(vel)
+        vel_world = carla_vec3d_to_vec3d(self.carla_actor.get_velocity())
+        trans = self.get_transform()
+        trans.location = Location(0, 0, 0)
+        vel_vehicle = trans.inv_transform(vel_world)
+        return vel_vehicle
 
     def get_speed(self):
         """
