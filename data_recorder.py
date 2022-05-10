@@ -32,7 +32,8 @@ class DataRecorder:
         self.base_save_dir = None
         self.world_config_file = "{}/config/{}".format(ROOT_PATH, args.world_config_file)
         self.actor_tree = ActorTree(self.world)
-        self.total_frames = -1
+        self.frame_total = -1
+        self.frame_step = 1
 
     def _get_world(self) -> carla.World:
         return self.carla_client.get_world()
@@ -71,7 +72,9 @@ class DataRecorder:
             self.world.apply_settings(settings)
             self.tm.set_synchronous_mode(True)
 
-            self.total_frames = json_settings["total_frames"]
+            self.frame_total = json_settings["frame_total"]
+            self.frame_step = json_settings["frame_step"]
+
             self.set_traffic_light_time(json_settings["traffic_light_setting"])
 
             actor_config_file = json_settings["actor_settings"]
@@ -103,9 +106,10 @@ class DataRecorder:
                                                                                      timestamp,
                                                                                      time.time()-tick_s))
                 # Save data to disk
-                save_s = time.time()
-                self.actor_tree.tick_data_saving(frame_id, timestamp)
-                print("Raw data saved, cost {:.3f}s".format(time.time()-save_s))
+                if total_frame_count % self.frame_step == 0:
+                    save_s = time.time()
+                    self.actor_tree.tick_data_saving(frame_id, timestamp)
+                    print("Raw data saved, cost {:.3f}s".format(time.time()-save_s))
 
                 global sig_interrupt
                 if sig_interrupt:
@@ -114,7 +118,7 @@ class DataRecorder:
                     break
 
                 total_frame_count += 1
-                if total_frame_count >= self.total_frames:
+                if total_frame_count >= self.frame_total:
                     time.sleep(2.0)
                     break
 
