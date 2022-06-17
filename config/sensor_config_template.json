@@ -5,16 +5,40 @@
             "type": "sensor.camera.rgb",
             "name": "image_2",
             "spawn_point": {"x": 2.0, "y": 0.0, "z": 2.0, "roll": 0.0, "pitch": 0.0, "yaw": 0.0},
-            "image_size_x": 1382,
-            "image_size_y": 512,
+            "image_size_x": 1241,
+            "image_size_y": 376,
             "fov": 90.0
         },
         {
             "type": "sensor.camera.semantic_segmentation",
             "name": "image_2_semantic",
             "spawn_point": {"x": 2.0, "y": 0.0, "z": 2.0, "roll": 0.0, "pitch": 0.0, "yaw": 0.0},
-            "image_size_x": 1382,
-            "image_size_y": 512,
+            "image_size_x": 1241,
+            "image_size_y": 376,
+            "fov": 90.0
+        },
+        {
+            "type": "sensor.camera.depth",
+            "name": "depth_2",
+            "spawn_point": {"x": 2.0, "y": 0.0, "z": 2.0, "roll": 0.0, "pitch": 0.0, "yaw": 0.0},
+            "image_size_x": 1241,
+            "image_size_y": 376,
+            "fov": 90.0
+        },
+        {
+            "type": "sensor.camera.rgb",
+            "name": "image_val_0",
+            "spawn_point": {"x": 2.0, "y": 3.0, "z": 2.0, "roll": 0.0, "pitch": 0.0, "yaw": -10.0},
+            "image_size_x": 1241,
+            "image_size_y": 376,
+            "fov": 90.0
+        },
+        {
+            "type": "sensor.camera.rgb",
+            "name": "image_val_1",
+            "spawn_point": {"x": 2.0, "y": -2.0, "z": 2.0, "roll": 0.0, "pitch": 0.0, "yaw": 10.0},
+            "image_size_x": 1241,
+            "image_size_y": 376,
             "fov": 90.0
         },
         {

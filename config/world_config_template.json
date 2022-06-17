@@ -1,8 +1,8 @@
 {
-    "frame_total": 12000,
-    "frame_step": 3,
+    "frame_total": 300,
+    "frame_step": 1,
     "map": "Town02",
-    "spectator_pose": {"x": 100, "y": -150.0, "z": 150, "roll": 0, "pitch": 60.0, "yaw": -90.0},
+    "spectator_pose": {"x": 100, "y": -150.0, "z": 150, "roll": 0, "pitch": 80.0, "yaw": -90.0},
     "world_settings":
     {
         "fixed_delta_seconds": 0.1,
@@ -14,7 +14,7 @@
     {
         "red_time": 2.0,
         "yellow_time": 0.01,
-        "green_time": 2.0
+        "green_time": 20.0
     }
 
 }

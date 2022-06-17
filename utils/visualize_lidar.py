@@ -45,9 +45,9 @@ LABEL_COLORS = np.array([
 
 
 class PointcloudType(Enum):
-        LIDAR = 0
-        SEMANTIC_LIDAR = 1
-        RADAR = 2
+    LIDAR = 0
+    SEMANTIC_LIDAR = 1
+    RADAR = 2
 
 
 class LidarVisualizer:
