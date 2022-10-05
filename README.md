@@ -59,10 +59,10 @@ python3 utils/visualize_lidar.py --type [lidar / semantic_lidar / radar] --sourc
 
 ```latex
 @article{FLCAV,
-  title={Federated learning meets connected autonomous vehicle perception: Principles and implementation},
-  author={Shuai Wang and Chengyang Li and Qi Hao and Derrick Wing Kwan Ng and Yonina C. Eldar and H. Vincent Poor},
+  title={Federated deep learning meets autonomous vehicle perception: Design and verification},
+  author={Shuai Wang and Chengyang Li and Derrick Wing Kwan Ng and Yonina C. Eldar and H. Vincent Poor and Qi Hao and Chengzhong Xu},
   journal={submitted to IEEE for possible publication},
-  year={2021},
+  year={2022},
   publisher={IEEE}
 }
 ```
