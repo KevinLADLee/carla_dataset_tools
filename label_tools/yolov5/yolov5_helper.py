@@ -13,15 +13,15 @@ import yaml
 
 
 class YoloConfig:
-    rectangle_pixels_min = 150
-    color_pixels_min = 30
+    rectangle_pixels_min = 250
+    color_pixels_min = 15
 
 
 LABEL_DATAFRAME = pd.DataFrame(columns=['raw_value', 'color', 'coco_names_index'],
                                data=[
                                      # [ 4, (220, 20, 60), 0],
                                      [18, (250, 170, 30), 9],
-                                     [12, (220, 220,  0), 80],
+                                    #  [12, (220, 220,  0), 80],
                                ])
 
 TL_LIGHT_LABEL = {'DEFAULT': 9,
@@ -47,7 +47,7 @@ COCO_NAMES = ['person', 'bicycle', 'car', 'motorcycle', 'airplane', 'bus', 'trai
               'cell phone',
               'microwave', 'oven', 'toaster', 'sink', 'refrigerator', 'book', 'clock', 'vase', 'scissors',
               'teddy bear',
-              'hair drier', 'toothbrush', 'traffic sign', 'traffic light green', 'traffic light red']
+              'hair drier', 'toothbrush', 'traffic sign', 'tl green', 'tl red']
 
 
 def decrease_brightness(img, value=30):
@@ -63,30 +63,36 @@ def check_color(img):
     hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
     hsv_img = decrease_brightness(hsv, 80)
 
-    red_min = np.array([0, 5, 150])
+    red_min = np.array([0, 70, 150])
     red_max = np.array([15, 255, 255])
-    red_min_2 = np.array([175, 5, 150])
-    red_max_2 = np.array([180, 255, 255])
+    red_min_2 = np.array([330/2, 70, 150])
+    red_max_2 = np.array([360/2, 255, 255])
 
     yellow_min = np.array([25, 5, 150])
     yellow_max = np.array([35, 180, 255])
 
     green_min = np.array([35, 5, 150])
-    green_max = np.array([90, 255, 255])
+    green_max = np.array([80, 255, 255])
 
     red_thresh = cv2.inRange(hsv_img, red_min, red_max) + cv2.inRange(hsv_img, red_min_2, red_max_2)
     yellow_thresh = cv2.inRange(hsv_img, yellow_min, yellow_max)
     green_thresh = cv2.inRange(hsv_img, green_min, green_max)
 
-    red_blur = cv2.medianBlur(red_thresh, 5)
-    yellow_blur = cv2.medianBlur(yellow_thresh, 5)
-    green_blur = cv2.medianBlur(green_thresh, 5)
+    red_blur = cv2.medianBlur(red_thresh, 3)
+    yellow_blur = cv2.medianBlur(yellow_thresh, 3)
+    green_blur = cv2.medianBlur(green_thresh, 3)
 
     red = cv2.countNonZero(red_blur)
     yellow = cv2.countNonZero(yellow_blur)
     green = cv2.countNonZero(green_blur)
 
-    light_color = max(red, green, yellow)
+    # light_color = max(red, green, yellow)
+    # print(red, green)
+    # cv2.imshow("img", img)
+    # cv2.imshow("red_blur", red_blur)
+    # cv2.imshow("green_blur", green_blur)
+    # cv2.waitKey()
+    light_color = max(red, green)
     if light_color > YoloConfig.color_pixels_min:
         if light_color == red:
             return TL_LIGHT_LABEL["RED"]
@@ -98,10 +104,10 @@ def check_color(img):
         return TL_LIGHT_LABEL["DEFAULT"]
 
 
-def write_yaml(output_path):
+def write_yaml(output_path, record_name, vehicle_name):
     os.makedirs(output_path, exist_ok=True)
     dict_file = {
-        'path': 'yolo_dataset',
+        'path': f'data/{record_name}/{vehicle_name}/yolo/yolo_dataset',
         'train': 'images/train',
         'val': 'images/train',
         'test': '',

@@ -12,9 +12,9 @@
     "actor_settings": "actor_settings_template.json",
     "traffic_light_setting":
     {
-        "red_time": 2.0,
-        "yellow_time": 0.01,
-        "green_time": 2.0
+        "red_time": 0.001,
+        "yellow_time": 0.001,
+        "green_time": 100.001
     }
 
 }

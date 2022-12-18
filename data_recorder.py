@@ -8,8 +8,9 @@ import carla
 
 from param import *
 from recorder.actor_tree import ActorTree
-from utils.transform import Transform, Location, Rotation
-from utils.transform import transform_to_carla_transform
+from recorder.actor_factory import NodeType
+from ds_utils.transform import Transform, Location, Rotation
+from ds_utils.transform import transform_to_carla_transform
 
 sig_interrupt = False
 
@@ -48,6 +49,7 @@ class DataRecorder:
                 actor.set_red_time(traffic_light_setting["red_time"])
                 actor.set_green_time(traffic_light_setting["green_time"])
                 actor.set_yellow_time(traffic_light_setting["yellow_time"])
+                actor.set_state(carla.TrafficLightState.Green)
 
     def setting_world_and_actors(self, json_file):
         with open(json_file) as handle:
@@ -85,6 +87,11 @@ class DataRecorder:
                                                               actor_config_file),
                                         self.base_save_dir)
             self.actor_tree.init()
+            for actor_node in self.actor_tree.node_list:
+                if actor_node.get_node_type() == NodeType.VEHICLE:
+                    self.tm.ignore_lights_percentage(actor_node.get_actor().get_carla_actor(), 100)
+
+            
 
     def start_record(self):
         self.setting_world_and_actors(self.world_config_file)

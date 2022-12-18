@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 import carla
 import pandas as pd
-from utils.geometry_types import Transform, Location, Rotation
+from ds_utils.geometry_types import Transform, Location, Rotation
 
 
 def main():

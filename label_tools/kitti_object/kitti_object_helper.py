@@ -9,9 +9,9 @@ from pathlib import Path
 import transforms3d.euler
 
 sys.path.append(Path(__file__).parent.parent.as_posix())
-from utils.geometry_types import Transform, Location
-from utils.label_types import ObjectLabel
-from utils.transform import bbox_to_o3d_bbox
+from ds_utils.geometry_types import Transform, Location
+from ds_utils.label_types import ObjectLabel
+from ds_utils.transform import bbox_to_o3d_bbox
 
 
 class Param:

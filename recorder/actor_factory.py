@@ -8,8 +8,8 @@ from enum import Enum
 import carla
 
 from param import RAW_DATA_PATH, ROOT_PATH
-from utils.geometry_types import *
-from utils.transform import transform_to_carla_transform
+from ds_utils.geometry_types import *
+from ds_utils.transform import transform_to_carla_transform
 
 from recorder.actor import Actor, PseudoActor
 from recorder.camera import RgbCamera, DepthCamera, SemanticSegmentationCamera
@@ -128,9 +128,14 @@ class ActorFactory(object):
                             sensor_node = self.create_sensor_node(sensor_info, node.get_actor(), sensor_name_set)
                             node.add_child(sensor_node)
 
-        other_vehicle_info = json_actors["other_vehicles"]
-        ov_nodes = self.create_other_vehicles(other_vehicle_info)
-        root.get_children().extend(ov_nodes)
+        # Create other vehicles
+        try: 
+            other_vehicle_info = json_actors["other_vehicles"]
+            ov_nodes = self.create_other_vehicles(other_vehicle_info)
+            root.get_children().extend(ov_nodes)
+        except KeyError:
+            print("WARN: No other vehicles in config file.")
+            pass
 
         return root
 

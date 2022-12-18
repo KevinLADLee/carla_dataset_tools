@@ -26,8 +26,8 @@ def gather_yolo_data(record_name: str, vehicle_name: str, rgb_camera_name: str, 
 
 class YoloLabelTool:
     def __init__(self):
-        self.rec_pixels_min = 150
-        self.color_pixels_min = 30
+        # self.rec_pixels_min = 150
+        # self.color_pixels_min = 50
         self.debug = False
 
     def process(self, rawdata_df: pd.DataFrame):
@@ -94,11 +94,16 @@ class YoloLabelTool:
                 if coco_id == TL_LIGHT_LABEL["DEFAULT"]:
                     coco_id = check_color(image_rgb[y:y + h, x:x + w, :])
 
+                if coco_id == TL_LIGHT_LABEL["DEFAULT"]:
+                    if w * h < 2 * YoloConfig.rectangle_pixels_min:
+                        continue
+
                 # DEBUG START
                 # Draw label info to image
-                # cv2.putText(preview_img, COCO_NAMES[coco_id], (x, y - 10),
-                #             cv2.FONT_HERSHEY_SIMPLEX, 0.5, (36, 255, 12), 1)
-                # cv2.rectangle(image_rgb, (x, y), (x + w, y + h), (0, 255, 0), 1)
+                # if coco_id != TL_LIGHT_LABEL["DEFAULT"]:
+                #     cv2.putText(preview_img, COCO_NAMES[coco_id], (x, y + 10),
+                #                 cv2.FONT_HERSHEY_SIMPLEX, 0.5, (36, 255, 12), 1)
+                #     cv2.rectangle(image_rgb, (x, y), (x + w, y + h), (0, 255, 0), 1)
                 # DEBUG END
 
                 label_info = "{} {} {} {} {}".format(coco_id,
@@ -119,7 +124,7 @@ class YoloLabelTool:
             # print("Label output path: {}".format(self.label_out_path))
             write_image(output_dir, frame_id, image_rgb)
             write_label(output_dir, frame_id, labels_all)
-        write_yaml(output_dir)
+        write_yaml(output_dir, frame['record_name'], frame['vehicle_name'])
         return
 
 

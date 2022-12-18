@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 
 from dataclasses import dataclass
-from utils.geometry_types import *
+from ds_utils.geometry_types import *
 
 
 @dataclass
