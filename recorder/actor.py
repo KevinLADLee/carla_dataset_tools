@@ -5,6 +5,8 @@ from utils.transform import *
 
 class PseudoActor(object):
     def __init__(self, uid, name, parent):
+        if name == '':
+            name = f"{self.get_type_id()}_{uid}"
         self.uid = uid
         self.name = name
         self.parent = parent
@@ -33,22 +35,22 @@ class PseudoActor(object):
 
 class Actor(PseudoActor):
     def __init__(self, uid, name, parent, carla_actor: carla.Actor):
+        self.carla_actor = carla_actor
         super(Actor, self).__init__(uid=uid,
                                     name=name,
                                     parent=parent)
-        self.carla_actor = carla_actor
 
     def destroy(self):
-        print("Destroying: uid={} name={} carla_id={}".format(self.uid, self.name, self.carla_actor.id))
+        # print("Destroying: uid={} name={} carla_id={}".format(self.uid, self.name, self.carla_actor.id))
         if self.carla_actor is not None:
             try:
                 status = self.carla_actor.destroy()
                 # time.sleep(1)
-                if status:
-                    print("-> success")
+                # if status:
+                #     print("-> success")
                 return status
             except RuntimeError:
-                print("-> failed")
+                # print("-> failed")
                 return False
 
     def get_transform(self) -> Transform:
@@ -60,16 +62,22 @@ class Actor(PseudoActor):
         self.carla_actor.set_transform(trans)
 
     def get_acceleration(self) -> Vector3d:
-        acc = self.carla_actor.get_acceleration()
-        return carla_vec3d_to_vec3d(acc)
+        acc_world = carla_vec3d_to_vec3d(self.carla_actor.get_acceleration())
+        trans = self.get_transform()
+        trans.location = Location(0, 0, 0)
+        acc_vehicle = trans.inv_transform(acc_world)
+        return acc_vehicle
 
     def get_velocity(self) -> Vector3d:
         """
         Get actor velocity in Vector3D(vx, vy, vz). It it in Right-Hand coordinate.
         :return: Vector3D(vx, vy, vz)
         """
-        vel = self.carla_actor.get_velocity()
-        return carla_vec3d_to_vec3d(vel)
+        vel_world = carla_vec3d_to_vec3d(self.carla_actor.get_velocity())
+        trans = self.get_transform()
+        trans.location = Location(0, 0, 0)
+        vel_vehicle = trans.inv_transform(vel_world)
+        return vel_vehicle
 
     def get_speed(self):
         """

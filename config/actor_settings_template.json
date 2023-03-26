@@ -3,21 +3,20 @@
     [
         {
             "type": "vehicle.tesla.model3",
-            "name": "vehicle_master",
+            "name": "vehicle.tesla.model3.master",
             "sensors_setting": "sensor_config_template.json",
-            "spawn_point": 238
-        },
-        {
-            "type": "vehicle.audi.etron",
-            "name": "vehicle_simpler",
-            "sensors_setting": "sensor_config_simple.json",
-            "spawn_point": 138
+            "spawn_point": 56
         },
         {
             "type": "infrastructure",
-            "name": "tl_infra_01",
-            "sensors_setting": "sensor_config_simple.json",
-            "spawn_point": {"x": 4.5215, "y": 210.596, "z": 15.3536}
+            "name": "infra_t_junction",
+            "sensors_setting": "sensor_config_infrastructure_template.json",
+            "spawn_point": {"x": -60, "y":25, "z": 25}
         }
-    ]
+    ],
+    "other_vehicles":
+    {
+        "vehicle_num": 0,
+        "spawn_points": [46, 47, 109, 119, 107, 110]
+    }
 }

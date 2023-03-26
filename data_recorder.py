@@ -24,13 +24,16 @@ class DataRecorder:
         self.host = args.host
         self.port = args.port
         self.carla_client = carla.Client(self.host, self.port)
-        self.carla_client.set_timeout(2.0)
+        self.carla_client.set_timeout(10.0)
         self.world = self._get_world()
+        self.tm = self.carla_client.get_trafficmanager()
         self.debug_helper = self.world.debug
         self.record_name = None
         self.base_save_dir = None
         self.world_config_file = "{}/config/{}".format(ROOT_PATH, args.world_config_file)
         self.actor_tree = ActorTree(self.world)
+        self.frame_total = -1
+        self.frame_step = 1
 
     def _get_world(self) -> carla.World:
         return self.carla_client.get_world()
@@ -38,10 +41,20 @@ class DataRecorder:
     def destroy(self):
         self.actor_tree.destroy()
 
+    def set_traffic_light_time(self, traffic_light_setting):
+        actor_list = self.world.get_actors()
+        for actor in actor_list:
+            if isinstance(actor, carla.TrafficLight):
+                actor.set_red_time(traffic_light_setting["red_time"])
+                actor.set_green_time(traffic_light_setting["green_time"])
+                actor.set_yellow_time(traffic_light_setting["yellow_time"])
+
     def setting_world_and_actors(self, json_file):
         with open(json_file) as handle:
             json_settings = json.loads(handle.read())
             self.carla_client.load_world(json_settings["map"])
+            self.world.set_weather(eval(json_settings["weather"]))
+            # todo: add this parameter into config file
             settings = self.world.get_settings()
             settings.synchronous_mode = True
 
@@ -59,6 +72,12 @@ class DataRecorder:
             settings.max_substep_delta_time = world_settings["max_substep_delta_time"]
             settings.max_substeps = world_settings["max_substeps"]
             self.world.apply_settings(settings)
+            self.tm.set_synchronous_mode(True)
+
+            self.frame_total = json_settings["frame_total"]
+            self.frame_step = json_settings["frame_step"]
+
+            self.set_traffic_light_time(json_settings["traffic_light_setting"])
 
             actor_config_file = json_settings["actor_settings"]
             self.record_name = time.strftime("%Y_%m%d_%H%M", time.localtime())
@@ -75,23 +94,36 @@ class DataRecorder:
         carla_logfile = "{}/carla_raw_record.log".format(self.base_save_dir)
         self.carla_client.start_recorder(carla_logfile)
         try:
+            total_frame_count = 0
             while True:
+                print("----------")
                 # Tick Control
                 self.actor_tree.tick_controller()
                 # Tick World
+                tick_s = time.time()
                 frame_id = self.world.tick(seconds=60.0)
                 world_snapshot = self.world.get_snapshot()
                 timestamp = world_snapshot.timestamp.elapsed_seconds
-                print("----------")
-                print("World Tick -> FrameID: {} Timestamp: {}".format(frame_id, timestamp))
+                print("World Tick -> FrameID: {} Timestamp: {} Cost: {:.3f}s".format(frame_id,
+                                                                                     timestamp,
+                                                                                     time.time() - tick_s))
                 # Save data to disk
-                self.actor_tree.tick_data_saving(frame_id, timestamp)
+                if total_frame_count % self.frame_step == 0:
+                    save_s = time.time()
+                    self.actor_tree.tick_data_saving(frame_id, timestamp)
+                    print("Raw data saved, cost {:.3f}s".format(time.time() - save_s))
 
                 global sig_interrupt
                 if sig_interrupt:
                     print("Exit step, wait 2 seconds...")
                     time.sleep(2.0)
                     break
+
+                total_frame_count += 1
+                if total_frame_count >= self.frame_total:
+                    time.sleep(2.0)
+                    break
+
         except KeyboardInterrupt:
             print("User interrupt, exit...")
         else:

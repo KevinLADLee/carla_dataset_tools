@@ -1,7 +1,8 @@
 #!/usr/bin/python3
 
 import carla
-from utils.types import *
+import open3d as o3d
+from utils.geometry_types import *
 
 
 def carla_location_to_numpy_vec(carla_location: carla.Location) -> numpy.array:
@@ -146,6 +147,17 @@ def transform_to_carla_transform(transform: Transform):
     return carla.Transform(carla_location, carla_rotation)
 
 
+def carla_bbox_to_bbox(carla_bbox: carla.BoundingBox):
+    location = carla_location_to_location(carla_bbox.location)
+    rotation = carla_rotation_to_rotation(carla_bbox.rotation)
+    extent = Vector3d(carla_bbox.extent.x,
+                      carla_bbox.extent.y,
+                      carla_bbox.extent.z)
+    return BoundingBox(location, extent, rotation)
 
 
-
+def bbox_to_o3d_bbox(bbox: BoundingBox):
+    center = bbox.location.get_vector()
+    rotation = bbox.rotation.get_rotation_matrix()
+    extent = 2.0 * bbox.extent.get_vector()
+    return o3d.geometry.OrientedBoundingBox(center, rotation, extent)

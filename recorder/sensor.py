@@ -19,7 +19,7 @@ class Sensor(Actor):
                  carla_actor: carla.Sensor):
         super(Sensor, self).__init__(uid=uid, name=name, parent=parent, carla_actor=carla_actor)
         self.sensor_type = copy.deepcopy(self.get_type_id())
-        self.save_dir = base_save_dir + '/{}_{}'.format(self.get_uid(), self.sensor_type)
+        self.save_dir = base_save_dir + '/{}'.format(name)
         self.queue = Queue()
         weak_self = weakref.ref(self)
         self.carla_actor.listen(lambda sensor_data: Sensor.data_callback(weak_self,
@@ -65,7 +65,7 @@ class Sensor(Actor):
         raise NotImplementedError
 
     def print_debug_info(self, data_frame_id, sensor_data):
-        print("\t\tFrame: {} uid={} data: {}".format(data_frame_id, self.uid, sensor_data))
+        print("\t\tParent uid: {}, Frame: {} uid={} data: {}".format(self.parent.uid, data_frame_id, self.uid, sensor_data))
 
     def get_save_dir(self):
         return self.save_dir
