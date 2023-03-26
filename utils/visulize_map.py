@@ -8,7 +8,7 @@ class MapVisualization:
         self.carla_client = carla.Client(args.host, args.port, worker_threads=1)
         self.world = self.carla_client.get_world()
         self.map = self.world.get_map()
-        self.fig, self.ax = plt.subplots()
+        self.fig, self.ax = plt.subplots(figsize=(30, 24))
 
     def destroy(self):
         self.carla_client = None
@@ -37,11 +37,11 @@ class MapVisualization:
             x = p.location.x
             y = -p.location.y
             self.ax.text(x, y, str(i),
-                         fontsize=6,
+                         fontsize=18,
                          color='darkorange',
                          va='center',
                          ha='center',
-                         weight='bold')
+                         weight='normal')
 
     def draw_roads(self):
         precision = 0.1
@@ -91,7 +91,7 @@ def main():
         help='TCP port of CARLA Simulator (default: 2000)')
     argparser.add_argument(
         '-m', '--map',
-        default='Town02',
+        default='Town10HD',
         help='Load a new map to visualize'
     )
 
