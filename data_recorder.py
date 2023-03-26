@@ -53,6 +53,8 @@ class DataRecorder:
         with open(json_file) as handle:
             json_settings = json.loads(handle.read())
             self.carla_client.load_world(json_settings["map"])
+            self.world.set_weather(eval(json_settings["weather"]))
+            # todo: add this parameter into config file
             settings = self.world.get_settings()
             settings.synchronous_mode = True
 
@@ -104,12 +106,12 @@ class DataRecorder:
                 timestamp = world_snapshot.timestamp.elapsed_seconds
                 print("World Tick -> FrameID: {} Timestamp: {} Cost: {:.3f}s".format(frame_id,
                                                                                      timestamp,
-                                                                                     time.time()-tick_s))
+                                                                                     time.time() - tick_s))
                 # Save data to disk
                 if total_frame_count % self.frame_step == 0:
                     save_s = time.time()
                     self.actor_tree.tick_data_saving(frame_id, timestamp)
-                    print("Raw data saved, cost {:.3f}s".format(time.time()-save_s))
+                    print("Raw data saved, cost {:.3f}s".format(time.time() - save_s))
 
                 global sig_interrupt
                 if sig_interrupt:
