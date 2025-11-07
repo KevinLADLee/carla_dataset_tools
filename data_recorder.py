@@ -90,6 +90,7 @@ class DataRecorder:
         self.setting_world_and_actors(self.world_config_file)
         os.makedirs(self.base_save_dir, exist_ok=True)
         carla_logfile = "{}/carla_raw_record.log".format(self.base_save_dir)
+        print("Start recording to {}".format(carla_logfile))
         self.carla_client.start_recorder(carla_logfile)
         try:
             total_frame_count = 0

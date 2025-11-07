@@ -39,7 +39,7 @@ class Sensor(Actor):
     def save_to_disk(self, frame_id, timestamp,  debug=False):
         sensor_frame_id = 0
         while sensor_frame_id < frame_id:
-            sensor_data = self.queue.get(True, 1.0)
+            sensor_data = self.queue.get(True)
             sensor_frame_id = sensor_data.frame
 
             # Drop previous data

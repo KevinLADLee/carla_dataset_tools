@@ -1,8 +1,8 @@
 opencv-python>4.0
 carla >= 0.9.16
-numpy>1.21.0
-transforms3d~=0.3.1
-open3d==0.13.0
+numpy<2.0,>=1.24.4
+transforms3d~=0.4.2
+open3d
 pandas
 shapely
 networkx

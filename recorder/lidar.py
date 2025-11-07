@@ -12,12 +12,11 @@ class Lidar(Sensor):
 
     def save_to_disk_impl(self, save_dir, sensor_data) -> bool:
         # Save as a Nx4 numpy array. Each row is a point (x, y, z, intensity)
-        lidar_data = np.frombuffer(bytes(sensor_data.raw_data),
-                                   dtype=np.float32)
-        lidar_data = np.reshape(
-            lidar_data, (int(lidar_data.shape[0] / 4), 4))
+        lidar_data = np.copy(np.frombuffer(sensor_data.raw_data, dtype=np.dtype('f4')))
+        lidar_data = np.reshape(lidar_data, (int(lidar_data.shape[0] / 4), 4))
 
         # Convert point cloud to right-hand coordinate system
+        # Negate y-axis to match your original coordinate convention
         lidar_data[:, 1] *= -1
 
         # Save point cloud to [RAW_DATA_PATH]/.../[ID]_[SENSOR_TYPE]/[FRAME_ID].npy
@@ -33,19 +32,17 @@ class SemanticLidar(Sensor):
 
     def save_to_disk_impl(self, save_dir, sensor_data) -> bool:
         # Save data as a Nx6 numpy array.
-        lidar_data = np.frombuffer(bytes(sensor_data.raw_data),
-                                   dtype=np.dtype([
-                                       ('x', np.float32),
-                                       ('y', np.float32),
-                                       ('z', np.float32),
-                                       ('CosAngle', np.float32),
-                                       ('ObjIdx', np.uint32),
-                                       ('ObjTag', np.uint32)
-                                   ]))
+        print("*******start**********")
+        print(sensor_data.raw_data.shape)
 
+        lidar_data = np.copy(np.frombuffer(sensor_data.raw_data, dtype=np.dtype([
+        ('x', np.float32), ('y', np.float32), ('z', np.float32),
+        ('CosAngle', np.float32), ('ObjIdx', np.uint32), ('ObjTag', np.uint32)])))
+        
         # Convert point cloud to right-hand coordinate system
+        # Negate y-axis to match Open3D/ROS conventions (see open3d_lidar.py line 98)
         lidar_data['y'] *= -1
-
+        print("********end*******")
         # Save point cloud to [RAW_DATA_PATH]/.../[ID]_[SENSOR_TYPE]/[FRAME_ID].npy
         np.save("{}/{:0>10d}".format(save_dir,
                                      sensor_data.frame),
