@@ -12,7 +12,7 @@ import carla
 from recorder.agents.tools.misc import get_speed
 
 
-class VehiclePIDController():
+class VehiclePIDController:
     """
     VehiclePIDController is the combination of two PID controllers
     (lateral and longitudinal) to perform the
@@ -97,11 +97,15 @@ class VehiclePIDController():
         self._lon_controller.change_parameters(**args_longitudinal)
 
     def change_lateral_PID(self, args_lateral):
-        """Changes the parameters of the PIDLongitudinalController"""
-        self._lon_controller.change_parameters(**args_lateral)
+        """Changes the parameters of the PIDLateralController"""
+        self._lat_controller.change_parameters(**args_lateral)
+
+    def set_offset(self, offset):
+        """Changes the offset"""
+        self._lat_controller.set_offset(offset)
 
 
-class PIDLongitudinalController():
+class PIDLongitudinalController:
     """
     PIDLongitudinalController implements longitudinal control using a PID.
     """
@@ -167,7 +171,7 @@ class PIDLongitudinalController():
         self._dt = dt
 
 
-class PIDLateralController():
+class PIDLateralController:
     """
     PIDLateralController implements lateral control using a PID.
     """
@@ -195,7 +199,7 @@ class PIDLateralController():
     def run_step(self, waypoint):
         """
         Execute one step of lateral control to steer
-        the vehicle towards a certain waypoin.
+        the vehicle towards a certain waypoint.
 
             :param waypoint: target waypoint
             :return: steering control in the range [-1, 1] where:
@@ -203,6 +207,10 @@ class PIDLateralController():
             +1 maximum steering to right
         """
         return self._pid_control(waypoint, self._vehicle.get_transform())
+
+    def set_offset(self, offset):
+        """Changes the offset"""
+        self._offset = offset
 
     def _pid_control(self, waypoint, vehicle_transform):
         """

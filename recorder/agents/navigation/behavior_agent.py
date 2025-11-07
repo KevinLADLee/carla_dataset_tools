@@ -8,14 +8,13 @@
 waypoints and avoiding other vehicles. The agent also responds to traffic lights,
 traffic signs, and has different possible configurations. """
 
-import random
 import numpy as np
 import carla
 from recorder.agents.navigation.basic_agent import BasicAgent
 from recorder.agents.navigation.local_planner import RoadOption
 from recorder.agents.navigation.behavior_types import Cautious, Aggressive, Normal
 
-from recorder.agents.tools.misc import get_speed, positive, is_within_distance, compute_distance
+from recorder.agents.tools.misc import get_speed, positive
 
 class BehaviorAgent(BasicAgent):
     """
@@ -30,16 +29,15 @@ class BehaviorAgent(BasicAgent):
     are encoded in the agent, from cautious to a more aggressive ones.
     """
 
-    def __init__(self, vehicle, behavior='normal'):
+    def __init__(self, vehicle, behavior='normal', opt_dict={}, map_inst=None, grp_inst=None):
         """
         Constructor method.
 
             :param vehicle: actor to apply to local planner logic onto
-            :param ignore_traffic_light: boolean to ignore any traffic light
             :param behavior: type of agent to apply
         """
 
-        super(BehaviorAgent, self).__init__(vehicle)
+        super().__init__(vehicle, opt_dict=opt_dict, map_inst=map_inst, grp_inst=grp_inst)
         self._look_ahead_steps = 0
 
         # Vehicle information
@@ -301,7 +299,7 @@ class BehaviorAgent(BasicAgent):
                 self._behavior.max_speed,
                 self._speed_limit - self._behavior.speed_lim_dist])
             self._local_planner.set_speed(target_speed)
-        control = self._local_planner.run_step(debug=debug)
+            control = self._local_planner.run_step(debug=debug)
 
         return control
 

@@ -95,6 +95,9 @@ class RgbCamera(CameraBase):
 class SemanticSegmentationCamera(CameraBase):
     def __init__(self, uid, name: str, base_save_dir: str, parent, carla_actor: carla.Sensor,
                  color_converter: carla.ColorConverter = None):
+        # WARNING: CARLA 0.9.14+ changed semantic segmentation IDs to match Cityscapes standard.
+        # If upgrading from 0.9.13, verify that downstream label processing code uses the new IDs.
+        # See: https://github.com/carla-simulator/carla/releases/tag/0.9.14
         color_converter = carla.ColorConverter.CityScapesPalette
         super().__init__(uid, name, base_save_dir, parent, carla_actor, color_converter)
 

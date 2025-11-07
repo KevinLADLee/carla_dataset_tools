@@ -12,7 +12,7 @@ class Radar(Sensor):
 
     def save_to_disk_impl(self, save_dir, sensor_data) -> bool:
         # Save as a Nx4 numpy array. Each row is a point (velocity, azimuth, altitude, depth)
-        # radar_raw_data = np.fromstring(sensor_data.raw_data,
+        # radar_raw_data = np.frombuffer(sensor_data.raw_data,
         #                                dtype=np.float32)
         # radar_raw_data = np.reshape(
         #     radar_raw_data, (int(radar_raw_data.shape[0] / 4), 4))
