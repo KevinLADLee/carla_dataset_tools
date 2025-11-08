@@ -1,6 +1,5 @@
 #!/usr/bin/python3
 import os
-import json
 import random
 import warnings
 from enum import Enum
@@ -98,36 +97,47 @@ class ActorFactory(object):
         self.v2x_layer_name_set = set()
         self.sensor_layer_name_set = set()
 
-    def create_actor_tree(self, actor_config_file):
+    def create_actor_tree(self, config):
+        """
+        Create actor tree from unified configuration
+
+        Args:
+            config: Configuration dictionary from ConfigManager
+
+        Returns:
+            Root node of the actor tree
+        """
         assert (self.base_save_dir is not None)
-        if not actor_config_file or not os.path.exists(actor_config_file):
-            raise RuntimeError(
-                "Could not read actor config file from {}".format(actor_config_file))
-        with open(actor_config_file) as handle:
-            json_actors = json.loads(handle.read())
+
+        if not config or 'actors' not in config:
+            raise RuntimeError("Invalid configuration: missing 'actors' section")
 
         root = self.create_world_node()
-        for actor_info in json_actors["actors"]:
+
+        # Create actors from config
+        for actor_info in config["actors"]:
             actor_type = str(actor_info["type"])
             node = Node()
+
             if actor_type.startswith("vehicle"):
                 node = self.create_vehicle_node(actor_info)
                 root.add_child(node)
             elif actor_type.startswith("infrastructure"):
                 node = self.create_infrastructure_node(actor_info)
                 root.add_child(node)
-            if node is not None:
-                # If it has sensor setting, then create subtree
-                if actor_info["sensors_setting"] is not None:
-                    sensor_info_file = actor_info["sensors_setting"]
-                    with open("{}/config/{}".format(ROOT_PATH, sensor_info_file)) as sensor_handle:
-                        sensors_setting = json.loads(sensor_handle.read())
-                        sensor_name_set = set()
-                        for sensor_info in sensors_setting["sensors"]:
-                            sensor_node = self.create_sensor_node(sensor_info, node.get_actor(), sensor_name_set)
-                            node.add_child(sensor_node)
 
-        other_vehicle_info = json_actors["other_vehicles"]
+            if node is not None:
+                # If actor has sensors, create sensor nodes
+                if "sensors" in actor_info and actor_info["sensors"]:
+                    sensor_name_set = set()
+                    for sensor_info in actor_info["sensors"]:
+                        sensor_node = self.create_sensor_node(
+                            sensor_info, node.get_actor(), sensor_name_set
+                        )
+                        node.add_child(sensor_node)
+
+        # Create other/background vehicles
+        other_vehicle_info = config.get("other_vehicles", {})
         ov_nodes = self.create_other_vehicles(other_vehicle_info)
         root.get_children().extend(ov_nodes)
 
@@ -165,13 +175,25 @@ class ActorFactory(object):
         return vehicle_node
 
     def create_other_vehicles(self, other_vehicles_info):
+        """
+        Create background traffic vehicles
+
+        Args:
+            other_vehicles_info: Dictionary with 'count' and optional 'spawn_points'
+
+        Returns:
+            List of other vehicle nodes
+        """
         blueprints = self.blueprint_lib.filter('vehicle.*')
         other_vehicle_nodes = []
-        try:
-            spawn_points = other_vehicles_info['spawn_points']
-        except (KeyError, ValueError):
-            spawn_points = None
 
+        # Get spawn points list if specified
+        try:
+            spawn_points = other_vehicles_info.get('spawn_points', [])
+        except (AttributeError, ValueError):
+            spawn_points = []
+
+        # Spawn vehicles at specific points
         if spawn_points:
             for spawn_point in spawn_points:
                 bp = random.choice(blueprints)
@@ -184,12 +206,14 @@ class ActorFactory(object):
                 other_vehicle_node = Node(other_vehicle_object, NodeType.OTHER_VEHICLE)
                 other_vehicle_nodes.append(other_vehicle_node)
 
+        # Spawn random vehicles
         try:
-            vehicle_num = other_vehicles_info['vehicle_num']
-        except (KeyError, ValueError):
-            vehicle_num = None
-        if vehicle_num:
-            for i in range(vehicle_num):
+            vehicle_count = other_vehicles_info.get('count', 0)
+        except (AttributeError, ValueError):
+            vehicle_count = 0
+
+        if vehicle_count:
+            for i in range(vehicle_count):
                 bp = random.choice(blueprints)
                 all_spawn_points = self.world.get_map().get_spawn_points()
                 try:

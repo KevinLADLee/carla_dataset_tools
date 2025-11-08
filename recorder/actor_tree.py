@@ -7,15 +7,15 @@ from multiprocessing.dummy import Pool as ThreadPool
 
 
 class ActorTree(object):
-    def __init__(self, world: carla.World, actor_config_file=None, base_save_dir=None):
+    def __init__(self, world: carla.World, config=None, base_save_dir=None):
         self.world = world
-        self.actor_config_file = actor_config_file
+        self.config = config
         self.actor_factory = ActorFactory(self.world, base_save_dir)
         self.root = Node(None)
         self.node_list = []
 
     def init(self):
-        self.root = self.actor_factory.create_actor_tree(self.actor_config_file)
+        self.root = self.actor_factory.create_actor_tree(self.config)
         self.node_list.append(self.root)
         for node in self.root.get_children():
             self.node_list.append(node)

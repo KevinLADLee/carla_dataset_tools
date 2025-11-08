@@ -1,5 +1,4 @@
 import argparse
-import json
 import os
 import signal
 import time
@@ -7,6 +6,7 @@ import time
 import carla
 
 from param import *
+from config.config_manager import ConfigManager, ConfigValidationError
 from recorder.actor_tree import ActorTree
 from utils.transform import Transform, Location, Rotation
 from utils.transform import transform_to_carla_transform
@@ -30,7 +30,7 @@ class DataRecorder:
         self.debug_helper = self.world.debug
         self.record_name = None
         self.base_save_dir = None
-        self.world_config_file = "{}/config/{}".format(ROOT_PATH, args.world_config_file)
+        self.config = None
         self.actor_tree = ActorTree(self.world)
         self.frame_total = -1
         self.frame_step = 1
@@ -49,49 +49,81 @@ class DataRecorder:
                 actor.set_green_time(traffic_light_setting["green_time"])
                 actor.set_yellow_time(traffic_light_setting["yellow_time"])
 
-    def setting_world_and_actors(self, json_file):
-        with open(json_file) as handle:
-            json_settings = json.loads(handle.read())
-            self.carla_client.load_world(json_settings["map"])
-            settings = self.world.get_settings()
-            settings.synchronous_mode = True
+    def setting_world_and_actors(self, config):
+        """
+        Configure world and actors from unified configuration
 
-            if json_settings["spectator_pose"] is not None:
-                pose = json_settings["spectator_pose"]
-                spectator = self.world.get_spectator()
-                spectator_transform = Transform(Location(pose["x"], pose["y"], pose["z"]),
-                                                Rotation(roll=pose["roll"], pitch=pose["pitch"], yaw=pose["yaw"]))
-                spectator.set_transform(transform_to_carla_transform(spectator_transform))
+        Args:
+            config: Configuration dictionary from ConfigManager
+        """
+        # Load map
+        self.carla_client.load_world(config['recording']['map'])
 
-            # Make sure fixed_delta_seconds <= max_substep_delta_time * max_substeps
-            world_settings = json_settings["world_settings"]
-            settings.fixed_delta_seconds = world_settings["fixed_delta_seconds"]
-            settings.substepping = True
-            settings.max_substep_delta_time = world_settings["max_substep_delta_time"]
-            settings.max_substeps = world_settings["max_substeps"]
+        # Configure world settings
+        settings = self.world.get_settings()
+        settings.synchronous_mode = config['world_settings']['synchronous_mode']
+        settings.fixed_delta_seconds = config['world_settings']['fixed_delta_seconds']
+        settings.substepping = config['world_settings']['substepping']
+        settings.max_substep_delta_time = config['world_settings']['max_substep_delta_time']
+        settings.max_substeps = config['world_settings']['max_substeps']
 
-            print("world settings: ", settings)
-            self.world.apply_settings(settings)
-            
-            print("Set synchronous mode now...")
-            self.tm.set_synchronous_mode(True)
+        print("World settings:", settings)
+        self.world.apply_settings(settings)
 
-            self.frame_total = json_settings["frame_total"]
-            self.frame_step = json_settings["frame_step"]
+        # Set weather if specified
+        if 'weather' in config['recording'] and config['recording']['weather']:
+            weather_preset = config['recording']['weather']
+            print(f"Setting weather to: {weather_preset}")
+            try:
+                weather = getattr(carla.WeatherParameters, weather_preset)
+                self.world.set_weather(weather)
+                print(f"✓ Weather set to {weather_preset}")
+            except AttributeError:
+                print(f"⚠ Warning: Weather preset '{weather_preset}' not found, using default")
 
-            self.set_traffic_light_time(json_settings["traffic_light_setting"])
+        # Set spectator position if specified
+        if 'spectator' in config and config['spectator'] is not None:
+            pose = config['spectator']
+            spectator = self.world.get_spectator()
+            spectator_transform = Transform(
+                Location(pose['x'], pose['y'], pose['z']),
+                Rotation(roll=pose.get('roll', 0.0),
+                        pitch=pose.get('pitch', 0.0),
+                        yaw=pose.get('yaw', 0.0))
+            )
+            spectator.set_transform(transform_to_carla_transform(spectator_transform))
 
-            actor_config_file = json_settings["actor_settings"]
-            self.record_name = time.strftime("%Y_%m%d_%H%M", time.localtime())
-            self.base_save_dir = "{}/record_{}".format(RAW_DATA_PATH, self.record_name)
-            self.actor_tree = ActorTree(self.world,
-                                        "{}/config/{}".format(ROOT_PATH,
-                                                              actor_config_file),
-                                        self.base_save_dir)
-            self.actor_tree.init()
+        # Set synchronous mode for traffic manager
+        print("Set synchronous mode now...")
+        self.tm.set_synchronous_mode(True)
 
-    def start_record(self):
-        self.setting_world_and_actors(self.world_config_file)
+        # Set recording parameters
+        self.frame_total = config['recording']['frame_total']
+        self.frame_step = config['recording']['frame_step']
+
+        # Set traffic light timings
+        traffic_light_settings = config.get('traffic_lights', {})
+        self.set_traffic_light_time(traffic_light_settings)
+
+        # Create save directory
+        self.record_name = time.strftime("%Y_%m%d_%H%M", time.localtime())
+        self.base_save_dir = "{}/record_{}".format(RAW_DATA_PATH, self.record_name)
+
+        # Initialize actor tree with configuration
+        self.actor_tree = ActorTree(self.world, config, self.base_save_dir)
+        self.actor_tree.init()
+
+        # Store config
+        self.config = config
+
+    def start_record(self, config):
+        """
+        Start recording with the given configuration
+
+        Args:
+            config: Configuration dictionary
+        """
+        self.setting_world_and_actors(config)
         print("Recording to folder: {}".format(self.base_save_dir))
         os.makedirs(self.base_save_dir, exist_ok=True)
         carla_logfile = "{}/carla_raw_record.log".format(self.base_save_dir)
@@ -151,14 +183,56 @@ def main():
         type=int,
         help='TCP port to listen to (default: 2000)')
     argparser.add_argument(
-        '-w', '--world_config_file',
-        metavar='W',
-        default='world_config_template.json',
+        '--profile',
+        default='default',
         type=str,
-        help='World configuration file')
+        help='Configuration profile name (default: default). Available: default, kitti, argoverse, simple')
+    argparser.add_argument(
+        '--config',
+        type=str,
+        help='Path to custom YAML configuration file (overrides --profile)')
+
     args = argparser.parse_args()
+
+    # Load configuration
+    try:
+        config_manager = ConfigManager("{}/config".format(ROOT_PATH))
+
+        if args.config:
+            # Load custom config file
+            print(f"Loading configuration from: {args.config}")
+            config = config_manager.load_config(args.config)
+        else:
+            # Load profile
+            print(f"Loading configuration profile: {args.profile}")
+            available_profiles = config_manager.list_profiles()
+            if args.profile not in available_profiles:
+                print(f"Error: Profile '{args.profile}' not found")
+                print(f"Available profiles: {', '.join(available_profiles)}")
+                return 1
+            config = config_manager.load_profile(args.profile)
+
+        print(f"Configuration loaded successfully!")
+        print(f"  Map: {config['recording']['map']}")
+        print(f"  Frames: {config['recording']['frame_total']}")
+        print(f"  Frame step: {config['recording']['frame_step']}")
+        print(f"  Actors: {len(config['actors'])}")
+
+    except FileNotFoundError as e:
+        print(f"Error: {e}")
+        return 1
+    except ConfigValidationError as e:
+        print(f"Configuration validation error: {e}")
+        return 1
+    except Exception as e:
+        print(f"Error loading configuration: {e}")
+        import traceback
+        traceback.print_exc()
+        return 1
+
+    # Start recording
     data_recorder = DataRecorder(args)
-    data_recorder.start_record()
+    data_recorder.start_record(config)
 
 
 if __name__ == "__main__":

@@ -1,0 +1,100 @@
+# CARLA Dataset Recording Configuration - Simple Profile
+# Compatible with CARLA 0.9.16
+# Minimal configuration for quick testing and simple scenarios
+
+# ============================================================================
+# Recording Settings - 录制设置
+# ============================================================================
+recording:
+  frame_total: 1000         # Shorter recording for testing - 较短的录制时长用于测试
+  frame_step: 1             # Save every frame - 保存每一帧
+  map: Town01               # Simpler map - 更简单的地图
+
+# ============================================================================
+# Spectator Camera Position - 观察者相机位置
+# ============================================================================
+spectator:
+  x: 50.0
+  y: 0.0
+  z: 100.0
+  roll: 0.0
+  pitch: 45.0
+  yaw: 0.0
+
+# ============================================================================
+# World Physics Settings - 世界物理设置
+# ============================================================================
+world_settings:
+  synchronous_mode: true
+  fixed_delta_seconds: 0.05    # Faster time step - 更快的时间步长
+  substepping: true
+  max_substep_delta_time: 0.01
+  max_substeps: 10
+
+# ============================================================================
+# Traffic Light Settings - 交通灯设置
+# ============================================================================
+traffic_lights:
+  red_time: 5.0
+  green_time: 5.0
+  yellow_time: 1.0
+
+# ============================================================================
+# Simple Sensor Templates - 简单传感器模板
+# ============================================================================
+sensor_templates:
+  # Basic RGB camera - 基础RGB相机
+  simple_camera: &simple_camera
+    type: sensor.camera.rgb
+    image_size_x: 800
+    image_size_y: 600
+    fov: 90.0
+
+  # Basic LiDAR - 基础激光雷达
+  simple_lidar: &simple_lidar
+    type: sensor.lidar.ray_cast
+    range: 50
+    channels: 32
+    points_per_second: 500000
+    upper_fov: 10
+    lower_fov: -30
+    rotation_frequency: 10
+    noise_stddev: 0.0
+
+# ============================================================================
+# Single Vehicle Configuration - 单车配置
+# ============================================================================
+actors:
+  # Single ego vehicle with minimal sensors - 单一自车，最少传感器
+  - type: vehicle.tesla.model3
+    name: ego_vehicle
+    spawn_point: 1
+    sensors:
+      # Front camera - 前置相机
+      - <<: *simple_camera
+        name: rgb_front
+        spawn_point:
+          x: 2.0
+          y: 0.0
+          z: 1.5
+          roll: 0.0
+          pitch: 0.0
+          yaw: 0.0
+
+      # Roof-mounted LiDAR - 车顶激光雷达
+      - <<: *simple_lidar
+        name: lidar
+        spawn_point:
+          x: 0.0
+          y: 0.0
+          z: 2.5
+          roll: 0.0
+          pitch: 0.0
+          yaw: 0.0
+
+# ============================================================================
+# Minimal Background Traffic - 最少背景交通
+# ============================================================================
+other_vehicles:
+  count: 10                 # Just a few vehicles - 少量车辆
+  spawn_points: [5, 10, 15] # Specific positions - 特定位置

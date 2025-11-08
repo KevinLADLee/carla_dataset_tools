@@ -4,4 +4,7 @@ __pycache__
 recorder/__pycache__
 raw_data/*
 dataset/*
-docs
+docs/python_api.md
+docs/en/
+docs/zh/
+docs/images/
