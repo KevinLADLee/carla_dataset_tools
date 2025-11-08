@@ -1,0 +1,208 @@
+# CARLA Dataset Recording Configuration - Argoverse Style
+# Compatible with CARLA 0.9.16
+# Configured for Argoverse-style autonomous driving dataset
+
+# ============================================================================
+# Recording Settings - 录制设置
+# ============================================================================
+recording:
+  frame_total: 12000
+  frame_step: 3
+  map: Town03               # Urban environment - 城市环境
+
+# ============================================================================
+# Spectator Camera Position - 观察者相机位置
+# ============================================================================
+spectator:
+  x: 0.0
+  y: 0.0
+  z: 200.0
+  roll: 0.0
+  pitch: 70.0
+  yaw: 0.0
+
+# ============================================================================
+# World Physics Settings - 世界物理设置
+# ============================================================================
+world_settings:
+  synchronous_mode: true
+  fixed_delta_seconds: 0.1
+  substepping: true
+  max_substep_delta_time: 0.01
+  max_substeps: 16
+
+# ============================================================================
+# Traffic Light Settings - 交通灯设置
+# ============================================================================
+traffic_lights:
+  red_time: 3.0
+  green_time: 3.0
+  yellow_time: 0.5
+
+# ============================================================================
+# Argoverse Sensor Templates - Argoverse传感器模板
+# Argoverse uses multiple cameras and LiDAR
+# ============================================================================
+sensor_templates:
+  # Ring cameras (7 cameras around the vehicle) - 环形相机
+  ring_camera: &ring_camera
+    type: sensor.camera.rgb
+    image_size_x: 1920
+    image_size_y: 1200
+    fov: 90.0
+
+  # Stereo cameras - 立体相机
+  stereo_camera: &stereo_camera
+    type: sensor.camera.rgb
+    image_size_x: 2056
+    image_size_y: 2464
+    fov: 70.0
+
+  # Argoverse LiDAR (Velodyne HDL-32E equivalent) - Argoverse激光雷达
+  argoverse_lidar: &argoverse_lidar
+    type: sensor.lidar.ray_cast
+    range: 100
+    channels: 32
+    points_per_second: 700000
+    upper_fov: 10.67
+    lower_fov: -30.67
+    rotation_frequency: 10
+    noise_stddev: 0.02
+
+# ============================================================================
+# Vehicles with Argoverse Sensor Suite - 装配Argoverse传感器的车辆
+# ============================================================================
+actors:
+  # Primary ego vehicle with full sensor suite - 主车辆(完整传感器套件)
+  - type: vehicle.tesla.model3
+    name: argoverse_vehicle_01
+    spawn_point: 50
+    sensors:
+      # Front center camera - 前中相机
+      - <<: *ring_camera
+        name: ring_front_center
+        spawn_point:
+          x: 2.0
+          y: 0.0
+          z: 1.7
+          roll: 0.0
+          pitch: 0.0
+          yaw: 0.0
+
+      # Front left camera - 左前相机
+      - <<: *ring_camera
+        name: ring_front_left
+        spawn_point:
+          x: 1.5
+          y: -0.5
+          z: 1.7
+          roll: 0.0
+          pitch: 0.0
+          yaw: -45.0
+
+      # Front right camera - 右前相机
+      - <<: *ring_camera
+        name: ring_front_right
+        spawn_point:
+          x: 1.5
+          y: 0.5
+          z: 1.7
+          roll: 0.0
+          pitch: 0.0
+          yaw: 45.0
+
+      # Side left camera - 左侧相机
+      - <<: *ring_camera
+        name: ring_side_left
+        spawn_point:
+          x: 0.0
+          y: -1.0
+          z: 1.7
+          roll: 0.0
+          pitch: 0.0
+          yaw: -90.0
+
+      # Side right camera - 右侧相机
+      - <<: *ring_camera
+        name: ring_side_right
+        spawn_point:
+          x: 0.0
+          y: 1.0
+          z: 1.7
+          roll: 0.0
+          pitch: 0.0
+          yaw: 90.0
+
+      # Rear left camera - 左后相机
+      - <<: *ring_camera
+        name: ring_rear_left
+        spawn_point:
+          x: -1.5
+          y: -0.5
+          z: 1.7
+          roll: 0.0
+          pitch: 0.0
+          yaw: -135.0
+
+      # Rear right camera - 右后相机
+      - <<: *ring_camera
+        name: ring_rear_right
+        spawn_point:
+          x: -1.5
+          y: 0.5
+          z: 1.7
+          roll: 0.0
+          pitch: 0.0
+          yaw: 135.0
+
+      # Stereo camera pair - 立体相机对
+      - <<: *stereo_camera
+        name: stereo_front_left
+        spawn_point:
+          x: 2.0
+          y: -0.3
+          z: 1.8
+          roll: 0.0
+          pitch: 0.0
+          yaw: 0.0
+
+      - <<: *stereo_camera
+        name: stereo_front_right
+        spawn_point:
+          x: 2.0
+          y: 0.3
+          z: 1.8
+          roll: 0.0
+          pitch: 0.0
+          yaw: 0.0
+
+      # LiDAR sensor - 激光雷达
+      - <<: *argoverse_lidar
+        name: lidar
+        spawn_point:
+          x: 0.0
+          y: 0.0
+          z: 2.5
+          roll: 0.0
+          pitch: 0.0
+          yaw: 0.0
+
+  # Additional vehicle - 额外车辆
+  - type: vehicle.tesla.model3
+    name: argoverse_vehicle_02
+    spawn_point: 80
+    sensors:
+      - <<: *ring_camera
+        name: ring_front_center
+        spawn_point: {x: 2.0, y: 0.0, z: 1.7, roll: 0.0, pitch: 0.0, yaw: 0.0}
+
+      - <<: *argoverse_lidar
+        name: lidar
+        spawn_point: {x: 0.0, y: 0.0, z: 2.5, roll: 0.0, pitch: 0.0, yaw: 0.0}
+
+# ============================================================================
+# Background Traffic - 背景交通
+# ============================================================================
+other_vehicles:
+  count: 30                 # Moderate traffic - 中等交通流量
+  spawn_points: [20, 30, 40, 60, 70, 90, 100]

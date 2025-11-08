@@ -1,0 +1,166 @@
+# CARLA Dataset Recording Configuration - Default Profile
+# Compatible with CARLA 0.9.16
+# This is the default configuration template
+
+# ============================================================================
+# Recording Settings - 录制设置
+# ============================================================================
+recording:
+  frame_total: 12000        # Total number of frames to record - 总录制帧数
+  frame_step: 3             # Save data every N frames - 每N帧保存一次数据
+  map: Town02               # CARLA map name (Town01-Town07, Town10HD) - 地图名称
+
+# ============================================================================
+# Spectator Camera Position - 观察者相机位置
+# ============================================================================
+spectator:
+  x: 100.0                  # X position in meters - X坐标(米)
+  y: -150.0                 # Y position in meters - Y坐标(米)
+  z: 150.0                  # Z position in meters (height) - Z坐标(米,高度)
+  roll: 0.0                 # Roll angle in degrees - 翻滚角(度)
+  pitch: 60.0               # Pitch angle in degrees - 俯仰角(度)
+  yaw: -90.0                # Yaw angle in degrees - 偏航角(度)
+
+# ============================================================================
+# World Physics Settings - 世界物理设置
+# ============================================================================
+world_settings:
+  synchronous_mode: true                # Enable client-server synchronization - 启用同步模式
+  fixed_delta_seconds: 0.1              # Fixed time step (0.0 for variable) - 固定时间步长(秒)
+  substepping: true                     # Enable physics substepping - 启用物理子步
+  max_substep_delta_time: 0.01          # Max time for each substep - 每个子步的最大时间(秒)
+  max_substeps: 16                      # Max number of substeps - 最大子步数
+  # Constraint: fixed_delta_seconds <= max_substep_delta_time * max_substeps
+  # 约束条件: fixed_delta_seconds <= max_substep_delta_time * max_substeps
+
+# ============================================================================
+# Traffic Light Settings - 交通灯设置
+# ============================================================================
+traffic_lights:
+  red_time: 2.0             # Red light duration in seconds - 红灯持续时间(秒)
+  green_time: 2.0           # Green light duration in seconds - 绿灯持续时间(秒)
+  yellow_time: 0.01         # Yellow light duration in seconds - 黄灯持续时间(秒)
+
+# ============================================================================
+# Sensor Configuration Templates - 传感器配置模板
+# Using YAML anchors to reuse sensor configurations - 使用YAML锚点复用配置
+# ============================================================================
+sensor_templates:
+  # RGB Camera template - RGB相机模板
+  rgb_camera_template: &rgb_camera
+    type: sensor.camera.rgb
+    image_size_x: 800
+    image_size_y: 600
+    fov: 90.0
+
+  # Semantic Segmentation Camera template - 语义分割相机模板
+  semantic_camera_template: &semantic_camera
+    type: sensor.camera.semantic_segmentation
+    image_size_x: 800
+    image_size_y: 600
+    fov: 90.0
+
+  # LiDAR template - 激光雷达模板
+  lidar_template: &lidar
+    type: sensor.lidar.ray_cast
+    range: 50                 # Detection range in meters - 探测范围(米)
+    channels: 80              # Number of laser channels - 激光通道数
+    points_per_second: 2300000  # Points generated per second - 每秒生成点数
+    upper_fov: 15             # Upper field of view in degrees - 上视场角(度)
+    lower_fov: -25            # Lower field of view in degrees - 下视场角(度)
+    rotation_frequency: 20    # Rotation frequency in Hz - 旋转频率(Hz)
+    noise_stddev: 0.0         # Noise standard deviation - 噪声标准差
+
+# ============================================================================
+# Vehicle and Sensor Actors - 车辆和传感器配置
+# ============================================================================
+actors:
+  # Primary ego vehicle with sensors - 主车辆(带传感器)
+  - type: vehicle.tesla.model3
+    name: vehicle.tesla.model3.master  # Optional unique name - 可选的唯一名称
+    spawn_point: 73                     # Spawn point index or {x, y, z} dict - 生成点索引或坐标
+    sensors:
+      # Front RGB camera - 前置RGB相机
+      - <<: *rgb_camera               # Reuse template - 复用模板
+        name: rgb_front
+        spawn_point:
+          x: 2.0
+          y: 0.0
+          z: 1.48
+          roll: 0.0
+          pitch: 4.5
+          yaw: 0.0
+
+      # LiDAR sensor - 激光雷达
+      - <<: *lidar                    # Reuse template - 复用模板
+        name: lidar
+        spawn_point:
+          x: 0.0
+          y: 0.0
+          z: 2.4
+          roll: 0.0
+          pitch: 0.0
+          yaw: 0.0
+
+  # Additional vehicles - 其他车辆
+  - type: vehicle.tesla.model3
+    spawn_point: 76
+    sensors:
+      - <<: *rgb_camera
+        name: rgb_front
+        spawn_point: {x: 2.0, y: 0.0, z: 1.48, roll: 0.0, pitch: 4.5, yaw: 0.0}
+
+  - type: vehicle.tesla.model3
+    spawn_point: 68
+    sensors:
+      - <<: *rgb_camera
+        name: rgb_front
+        spawn_point: {x: 2.0, y: 0.0, z: 1.48, roll: 0.0, pitch: 4.5, yaw: 0.0}
+
+  - type: vehicle.tesla.model3
+    spawn_point: 82
+    sensors:
+      - <<: *rgb_camera
+        name: rgb_front
+        spawn_point: {x: 2.0, y: 0.0, z: 1.48, roll: 0.0, pitch: 4.5, yaw: 0.0}
+
+  - type: vehicle.tesla.model3
+    spawn_point: 90
+    sensors:
+      - <<: *rgb_camera
+        name: rgb_front
+        spawn_point: {x: 2.0, y: 0.0, z: 1.48, roll: 0.0, pitch: 4.5, yaw: 0.0}
+
+  # Infrastructure sensor (roadside unit) - 路侧单元
+  - type: infrastructure
+    name: infra_t_junction
+    spawn_point:
+      x: 41
+      y: -240
+      z: 2.7
+    sensors:
+      - <<: *rgb_camera
+        name: infra_camera
+        spawn_point: {x: 0.0, y: 0.0, z: 0.0, roll: 0.0, pitch: 0.0, yaw: 0.0}
+        image_size_x: 1920
+        image_size_y: 1080
+
+# ============================================================================
+# Background Traffic Vehicles - 背景交通车辆
+# ============================================================================
+other_vehicles:
+  count: 50                   # Number of random vehicles to spawn - 随机生成的车辆数量
+  spawn_points:               # Optional specific spawn points - 可选的特定生成点
+    - 44
+    - 55
+    - 64
+    - 39
+    - 58
+    - 10
+    - 95
+    - 3
+    - 13
+    - 100
+    - 5
+    - 26
+    - 25

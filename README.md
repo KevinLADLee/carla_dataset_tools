@@ -80,6 +80,7 @@ pip3 install -r requirements.txt
 - pandas
 - shapely
 - networkx
+- pyyaml >= 6.0
 
 ### Step 3: Configure Environment Variables
 
@@ -126,16 +127,23 @@ For headless mode (no rendering):
 
 ### 2. Record Data
 
-Run the data recorder with default configuration:
+Run the data recorder with a configuration profile:
 
 ```bash
+# Use default configuration profile
 python3 data_recorder.py
-```
 
-Use a custom configuration:
+# Use KITTI-style configuration
+python3 data_recorder.py --profile kitti
 
-```bash
-python3 data_recorder.py -w world_config_template.json
+# Use Argoverse-style configuration
+python3 data_recorder.py --profile argoverse
+
+# Use simple configuration for testing
+python3 data_recorder.py --profile simple
+
+# Use custom YAML configuration file
+python3 data_recorder.py --config my_custom_config.yaml
 ```
 
 **🎮 Control Options:**
@@ -198,105 +206,142 @@ python3 utils/visualize_lidar.py --type lidar --source raw_data/record_2022_0119
 
 ## ⚙️ Configuration
 
-All configuration files are located in the `config/` directory.
+All configuration files use YAML format and are located in the `config/profiles/` directory.
 
-### 📋 World Configuration
+### 📋 Configuration Profiles
 
-**File**: `config/world_config_template.json`
+The toolkit includes several pre-configured profiles:
 
-```json
-{
-    "frame_total": 12000,        // Total frames to record
-    "frame_step": 3,              // Save data every N frames
-    "map": "Town02",              // CARLA map name
-    "spectator_pose": {...},      // Camera view position
-    "world_settings": {
-        "fixed_delta_seconds": 0.1,
-        "max_substep_delta_time": 0.01,
-        "max_substeps": 16
-    },
-    "actor_settings": "actor_settings_template.json",
-    "traffic_light_setting": {
-        "red_time": 2.0,
-        "yellow_time": 0.01,
-        "green_time": 2.0
-    }
-}
+- **`default`** - General purpose configuration with multiple vehicles and sensors
+- **`kitti`** - KITTI-style dataset configuration (Velodyne HDL-64E, standard cameras)
+- **`argoverse`** - Argoverse-style with ring cameras and stereo setup
+- **`simple`** - Minimal configuration for quick testing
+
+### 📄 Configuration File Structure
+
+Configuration files use YAML format with the following sections:
+
+```yaml
+# Recording settings
+recording:
+  frame_total: 12000        # Total frames to record
+  frame_step: 3             # Save every N frames
+  map: Town02               # CARLA map name
+
+# Spectator camera position
+spectator:
+  x: 100.0
+  y: -150.0
+  z: 150.0
+  pitch: 60.0
+  yaw: -90.0
+
+# World physics settings
+world_settings:
+  synchronous_mode: true
+  fixed_delta_seconds: 0.1
+  substepping: true
+  max_substep_delta_time: 0.01
+  max_substeps: 16
+
+# Traffic light timings
+traffic_lights:
+  red_time: 2.0
+  green_time: 2.0
+  yellow_time: 0.01
+
+# Vehicle and sensor actors
+actors:
+  - type: vehicle.tesla.model3
+    name: ego_vehicle
+    spawn_point: 73
+    sensors:
+      - type: sensor.camera.rgb
+        name: image_2
+        spawn_point: {x: 2.0, y: 0.0, z: 2.0}
+        image_size_x: 1382
+        image_size_y: 512
+        fov: 90.0
+
+      - type: sensor.lidar.ray_cast
+        name: velodyne
+        spawn_point: {x: 0.0, y: 0.0, z: 2.4}
+        range: 100
+        channels: 64
+        points_per_second: 1300000
+
+# Background traffic
+other_vehicles:
+  count: 50
+  spawn_points: [44, 55, 64]
 ```
 
-**Available Maps**: Town01, Town02, Town03, Town04, Town05, Town06, Town07, Town10HD
+### 🔧 Creating Custom Configurations
 
-### 🚗 Actor Configuration
+1. **Copy an existing profile:**
+   ```bash
+   cp config/profiles/default.yaml config/profiles/my_config.yaml
+   ```
 
-**File**: `config/actor_settings_template.json`
+2. **Edit the configuration:**
+   - Modify sensor parameters, vehicle types, spawn points
+   - YAML supports comments for documentation
+   - Use YAML anchors (`&` and `*`) to reuse configurations
 
-Defines vehicles and infrastructure to spawn:
+3. **Validate your configuration:**
+   ```bash
+   python3 utils/validate_config.py config/profiles/my_config.yaml
+   ```
 
-```json
-{
-    "actors": [
-        {
-            "type": "vehicle.tesla.model3",
-            "name": "vehicle.tesla.model3.master",
-            "sensors_setting": "sensor_config_template.json",
-            "spawn_point": 73  // Spawn point index
-        },
-        {
-            "type": "infrastructure",  // Roadside unit
-            "name": "infra_t_junction",
-            "sensors_setting": "sensor_config_infrastructure_template.json",
-            "spawn_point": {"x": 41, "y": -240, "z": 2.7}
-        }
-    ],
-    "other_vehicles": {
-        "vehicle_num": 50,  // Number of background vehicles
-        "spawn_points": [44, 55, 64, ...]
-    }
-}
+4. **Use your configuration:**
+   ```bash
+   python3 data_recorder.py --config config/profiles/my_config.yaml
+   ```
+
+### 🛠️ Configuration Tools
+
+**List available profiles:**
+```bash
+python3 utils/list_profiles.py
 ```
 
-### 📷 Sensor Configuration
-
-**File**: `config/sensor_config_template.json`
-
-Defines sensors attached to each actor:
-
-```json
-{
-    "sensors": [
-        {
-            "type": "sensor.camera.rgb",
-            "name": "image_2",
-            "spawn_point": {"x": 2.0, "y": 0.0, "z": 2.0, ...},
-            "image_size_x": 1382,
-            "image_size_y": 512,
-            "fov": 90.0
-        },
-        {
-            "type": "sensor.lidar.ray_cast",
-            "name": "velodyne",
-            "spawn_point": {"x": 0.0, "y": 0.0, "z": 2.4, ...},
-            "range": 100,
-            "channels": 64,
-            "points_per_second": 1300000
-        }
-    ]
-}
+**Validate a configuration:**
+```bash
+python3 utils/validate_config.py --profile kitti
+python3 utils/validate_config.py my_config.yaml
 ```
 
-**Supported Sensor Types:**
+**Convert old JSON configs to YAML:**
+```bash
+python3 utils/convert_json_to_yaml.py old_config.json -o new_config.yaml
+```
+
+### 📂 Available Maps
+
+Town01, Town02, Town03, Town04, Town05, Town06, Town07, Town10HD
+
+### 📷 Supported Sensor Types
+
 - `sensor.camera.rgb` - RGB Camera
+- `sensor.camera.depth` - Depth Camera
 - `sensor.camera.semantic_segmentation` - Semantic Segmentation Camera
 - `sensor.lidar.ray_cast` - LiDAR
 - `sensor.lidar.ray_cast_semantic` - Semantic LiDAR
 - `sensor.other.radar` - Radar
 
-### 📂 Example Configurations
+### 🚗 Actor Types
 
-The `config/` directory includes preset configurations:
+- **Vehicles**: `vehicle.tesla.model3`, `vehicle.audi.a2`, etc.
+- **Infrastructure**: Static roadside sensors for V2X scenarios
 
-- `config/kitti_object/` - KITTI-style dataset configuration
-- `config/argoverse/` - Argoverse-style dataset configuration
+### ⚠️ Configuration Constraints
+
+The configuration manager validates that:
+
+- `fixed_delta_seconds <= max_substep_delta_time * max_substeps`
+- All sensor types are valid according to CARLA 0.9.16 API
+- Required fields are present
+- Spawn points and coordinates are properly formatted
 
 ---
 
@@ -437,28 +482,36 @@ pip3 install "numpy>=1.24.4,<2.0"
 
 ```
 carla_dataset_tools/
-├── config/                   # Configuration files
-│   ├── world_config_template.json
-│   ├── actor_settings_template.json
-│   ├── sensor_config_template.json
-│   ├── kitti_object/        # KITTI preset
-│   └── argoverse/           # Argoverse preset
-├── label_tools/             # Labeling scripts
-│   ├── kitti_objects_label.py
-│   ├── yolo_label.py
-│   └── argoverse_label.py
-├── recorder/                # Core recording modules
-│   ├── actor_tree.py
-│   ├── vehicle.py
-│   ├── sensor.py
-│   └── agents/              # Autopilot agents
-├── utils/                   # Utility scripts
-│   ├── visualize_lidar.py
-│   ├── transform.py
-│   └── geometry_types.py
-├── data_recorder.py         # Main recording script
-├── param.py                 # Global parameters
-├── requirements.txt
+├── config/                      # Configuration management
+│   ├── config_manager.py        # YAML config loader and validator
+│   └── profiles/                # Pre-configured profiles
+│       ├── default.yaml         # Default configuration
+│       ├── kitti.yaml           # KITTI dataset style
+│       ├── argoverse.yaml       # Argoverse dataset style
+│       └── simple.yaml          # Simple testing config
+├── label_tools/                 # Labeling scripts
+│   ├── kitti_objects_label.py   # KITTI format labeling
+│   ├── yolo_label.py            # YOLOv5 format labeling
+│   └── kitti_object/            # KITTI utilities
+├── recorder/                    # Core recording modules
+│   ├── actor_tree.py            # Actor hierarchy management
+│   ├── actor_factory.py         # Actor and sensor spawning
+│   ├── vehicle.py               # Vehicle recording
+│   ├── sensor.py                # Base sensor class
+│   ├── camera.py                # Camera sensors
+│   ├── lidar.py                 # LiDAR sensors
+│   ├── radar.py                 # Radar sensor
+│   └── agents/                  # Autopilot agents
+├── utils/                       # Utility scripts
+│   ├── visualize_lidar.py       # Point cloud visualization
+│   ├── validate_config.py       # Config validation tool
+│   ├── list_profiles.py         # List available profiles
+│   ├── convert_json_to_yaml.py  # JSON to YAML converter
+│   ├── transform.py             # Coordinate transformations
+│   └── geometry_types.py        # Geometry utilities
+├── data_recorder.py             # Main recording script
+├── param.py                     # Global parameters
+├── requirements.txt             # Python dependencies
 └── README.md
 ```
 

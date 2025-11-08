@@ -5,3 +5,4 @@ transforms3d~=0.4.2
 open3d
 shapely
 networkx
+pyyaml>=6.0
