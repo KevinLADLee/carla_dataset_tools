@@ -14,28 +14,11 @@ Data collection and labeling tools for [CARLA Simulator](https://carla.org/). Th
 
 ---
 
-## 📑 Table of Contents
-
-- [Features](#-features)
-- [Prerequisites](#-prerequisites)
-- [Installation](#-installation)
-- [Quick Start](#-quick-start)
-- [Configuration](#-configuration)
-- [Data Format](#-data-format)
-- [Advanced Usage](#-advanced-usage)
-- [Troubleshooting](#-troubleshooting)
-- [Project Structure](#-project-structure)
-- [Contributing](#-contributing)
-- [Citation](#-citation)
-- [Acknowledgements](#-acknowledgements)
-
----
-
-## ✨ Features
+## ✨ Key Features
 
 - ✅ **Multi-Sensor Support**: RGB Camera, Semantic Segmentation, LiDAR, Semantic LiDAR, Radar
 - ✅ **Multiple Dataset Formats**: KITTI Object, YOLOv5, Argoverse
-- ✅ **Flexible Configuration**: JSON-based configuration for worlds, actors, and sensors
+- ✅ **Flexible Configuration**: YAML-based configuration with validation
 - ✅ **Infrastructure Support**: Roadside unit (RSU) simulation for V2X scenarios
 - ✅ **Synchronized Recording**: Synchronized multi-vehicle and multi-sensor data collection
 - ✅ **Visualization Tools**: Built-in point cloud and data visualization utilities
@@ -43,487 +26,97 @@ Data collection and labeling tools for [CARLA Simulator](https://carla.org/). Th
 
 ---
 
-## 🔧 Prerequisites
+## 🚀 30-Second Quick Start
 
-Before you begin, ensure you have the following:
+```bash
+# 1. Clone and install
+git clone https://github.com/KevinLADLee/carla_dataset_tools.git
+cd carla_dataset_tools
+pip3 install -r requirements.txt
+
+# 2. Set environment variable
+export CARLA_ROOT=/path/to/your/carla
+
+# 3. Start CARLA
+cd $CARLA_ROOT && ./CarlaUE4.sh
+
+# 4. Record data (in a new terminal)
+cd carla_dataset_tools
+python3 data_recorder.py --profile kitti
+
+# 5. Generate labels
+python3 label_tools/kitti_objects_label.py -r record_YYYY_MMDD_HHMM
+```
+
+---
+
+## 📚 Documentation
+
+### For Users
+
+**[User Guide](docs/USER_GUIDE.md)** - Complete installation and usage guide
+
+- Installation and prerequisites
+- Recording data with different profiles
+- Generating labels (KITTI, YOLOv5, Argoverse)
+- Data visualization
+- Troubleshooting
+
+**[中文用户指南](docs/USER_GUIDE_CN.md)** - 完整的安装和使用指南
+
+### For Developers
+
+**[Developer Guide](docs/DEVELOPER.md)** - Technical documentation for developers
+
+- Architecture overview
+- Configuration system details (maps, weather, sensors)
+- API reference
+- Extending the toolkit
+- Development workflow
+
+**[中文开发者指南](docs/DEVELOPER_CN.md)** - 开发者技术文档
+
+---
+
+## ⚙️ Configuration Profiles
+
+Pre-configured profiles for different dataset styles:
+
+- **`default`** - General purpose with multiple vehicles and sensors
+- **`kitti`** - KITTI-style (Velodyne HDL-64E, standard cameras)
+- **`argoverse`** - Argoverse-style with ring cameras
+- **`simple`** - Minimal configuration for testing
+
+```bash
+# List available profiles
+python3 utils/list_profiles.py
+
+# Use a profile
+python3 data_recorder.py --profile kitti
+
+# Validate a configuration
+python3 utils/validate_config.py --profile kitti
+```
+
+See [Developer Guide](docs/DEVELOPER.md) for complete configuration reference.
+
+---
+
+## 📊 Supported Dataset Formats
+
+- **KITTI Object Detection** - 3D bounding boxes with calibration
+- **YOLOv5** - 2D bounding box annotations
+- **Argoverse** - Ring camera setup (experimental)
+
+---
+
+## 🔧 Prerequisites
 
 - **CARLA Simulator** >= 0.9.16
 - **Python** >= 3.8
-- **CARLA Python API** (included with CARLA distribution)
 - **Operating System**: Linux (recommended) / Windows
 
-> 📥 **Download CARLA**: [https://github.com/carla-simulator/carla/releases](https://github.com/carla-simulator/carla/releases)
-
----
-
-## 📦 Installation
-
-### Step 1: Clone the Repository
-
-```bash
-git clone https://github.com/KevinLADLee/carla_dataset_tools.git
-cd carla_dataset_tools
-```
-
-### Step 2: Install Dependencies
-
-```bash
-pip3 install -r requirements.txt
-```
-
-**requirements.txt includes:**
-- opencv-python > 4.0
-- carla >= 0.9.16
-- numpy < 2.0, >= 1.24.4
-- transforms3d ~= 0.4.2
-- open3d
-- pandas
-- shapely
-- networkx
-- pyyaml >= 6.0
-
-### Step 3: Configure Environment Variables
-
-Add the following to your `~/.bashrc` or `~/.zshrc`:
-
-```bash
-# Set CARLA root directory
-export CARLA_ROOT=/path/to/your/carla
-```
-
-**Replace:**
-- `/path/to/your/carla` with your actual CARLA installation path
-
-Then reload your shell configuration:
-
-```bash
-source ~/.bashrc  # or source ~/.zshrc
-```
-
-### Step 4: Verify Installation
-
-```bash
-python3 -c "import carla; print(f'CARLA version: {carla.__version__}')"
-```
-
----
-
-## 🚀 Quick Start
-
-### 1. Start CARLA Simulator
-
-First, launch the CARLA server:
-
-```bash
-cd $CARLA_ROOT
-./CarlaUE4.sh
-```
-
-For headless mode (no rendering):
-
-```bash
-./CarlaUE4.sh -RenderOffScreen
-```
-
-### 2. Record Data
-
-Run the data recorder with a configuration profile:
-
-```bash
-# Use default configuration profile
-python3 data_recorder.py
-
-# Use KITTI-style configuration
-python3 data_recorder.py --profile kitti
-
-# Use Argoverse-style configuration
-python3 data_recorder.py --profile argoverse
-
-# Use simple configuration for testing
-python3 data_recorder.py --profile simple
-
-# Use custom YAML configuration file
-python3 data_recorder.py --config my_custom_config.yaml
-```
-
-**🎮 Control Options:**
-- The recorder will automatically collect data until the configured frame count is reached
-- Press `Ctrl+C` to stop recording manually
-
-**📁 Output Location:**
-Data will be saved to: `raw_data/record_YYYY_MMDD_HHMM/`
-
-### 3. Generate Labels
-
-#### KITTI Object Format
-
-```bash
-python3 label_tools/kitti_objects_label.py -r record_2022_0119_1303
-```
-
-**Options:**
-```bash
-# Specify vehicle
-python3 label_tools/kitti_objects_label.py -r record_2022_0119_1303 -v vehicle.tesla.model3_1
-
-# Specify sensors
-python3 label_tools/kitti_objects_label.py -r record_2022_0119_1303 -l velodyne -c image_2
-
-# Custom output directory
-python3 label_tools/kitti_objects_label.py -r record_2022_0119_1303 -o my_dataset
-```
-
-#### YOLOv5 Format
-
-```bash
-python3 label_tools/yolo_label.py -r record_2022_0119_1303
-```
-
-#### Argoverse Format (non-stable)
-
-```bash
-python3 label_tools/argoverse_label.py -r record_2022_0119_1303
-```
-
-### 4. Visualize Data
-
-#### Visualize Point Cloud
-
-```bash
-# Visualize a single file
-python3 utils/visualize_lidar.py --type lidar --source raw_data/record_2022_0119_1303/vehicle.tesla.model3_1/000001_lidar.npy
-
-# Visualize all frames (glob mode)
-python3 utils/visualize_lidar.py --type lidar --source raw_data/record_2022_0119_1303/vehicle.tesla.model3_1/
-```
-
-**Supported types:**
-- `lidar` - Standard LiDAR point cloud
-- `semantic_lidar` - Semantic LiDAR with class labels
-- `radar` - Radar detection points
-
----
-
-## ⚙️ Configuration
-
-All configuration files use YAML format and are located in the `config/profiles/` directory.
-
-### 📋 Configuration Profiles
-
-The toolkit includes several pre-configured profiles:
-
-- **`default`** - General purpose configuration with multiple vehicles and sensors
-- **`kitti`** - KITTI-style dataset configuration (Velodyne HDL-64E, standard cameras)
-- **`argoverse`** - Argoverse-style with ring cameras and stereo setup
-- **`simple`** - Minimal configuration for quick testing
-
-### 📄 Configuration File Structure
-
-Configuration files use YAML format with the following sections:
-
-```yaml
-# Recording settings
-recording:
-  frame_total: 12000        # Total frames to record
-  frame_step: 3             # Save every N frames
-  map: Town02               # CARLA map name
-  weather: ClearNoon        # Weather preset (optional)
-
-# Spectator camera position
-spectator:
-  x: 100.0
-  y: -150.0
-  z: 150.0
-  pitch: 60.0
-  yaw: -90.0
-
-# World physics settings
-world_settings:
-  synchronous_mode: true
-  fixed_delta_seconds: 0.1
-  substepping: true
-  max_substep_delta_time: 0.01
-  max_substeps: 16
-
-# Traffic light timings
-traffic_lights:
-  red_time: 2.0
-  green_time: 2.0
-  yellow_time: 0.01
-
-# Vehicle and sensor actors
-actors:
-  - type: vehicle.tesla.model3
-    name: ego_vehicle
-    spawn_point: 73
-    sensors:
-      - type: sensor.camera.rgb
-        name: image_2
-        spawn_point: {x: 2.0, y: 0.0, z: 2.0}
-        image_size_x: 1382
-        image_size_y: 512
-        fov: 90.0
-
-      - type: sensor.lidar.ray_cast
-        name: velodyne
-        spawn_point: {x: 0.0, y: 0.0, z: 2.4}
-        range: 100
-        channels: 64
-        points_per_second: 1300000
-
-# Background traffic
-other_vehicles:
-  count: 50
-  spawn_points: [44, 55, 64]
-```
-
-### 🔧 Creating Custom Configurations
-
-1. **Copy an existing profile:**
-   ```bash
-   cp config/profiles/default.yaml config/profiles/my_config.yaml
-   ```
-
-2. **Edit the configuration:**
-   - Modify sensor parameters, vehicle types, spawn points
-   - YAML supports comments for documentation
-   - Use YAML anchors (`&` and `*`) to reuse configurations
-
-3. **Validate your configuration:**
-   ```bash
-   python3 utils/validate_config.py config/profiles/my_config.yaml
-   ```
-
-4. **Use your configuration:**
-   ```bash
-   python3 data_recorder.py --config config/profiles/my_config.yaml
-   ```
-
-### 🛠️ Configuration Tools
-
-**List available profiles:**
-```bash
-python3 utils/list_profiles.py
-```
-
-**Validate a configuration:**
-```bash
-python3 utils/validate_config.py --profile kitti
-python3 utils/validate_config.py my_config.yaml
-```
-
-**Convert old JSON configs to YAML:**
-```bash
-python3 utils/convert_json_to_yaml.py old_config.json -o new_config.yaml
-```
-
-### 📂 Available Maps
-
-CARLA 0.9.16 includes the following maps:
-
-**Town Maps:**
-- `Town01`, `Town01_Opt` - Simple town with basic road network
-- `Town02`, `Town02_Opt` - Small town with various intersections
-- `Town03`, `Town03_Opt` - Larger urban area with roundabout
-- `Town04`, `Town04_Opt` - Small town with highway
-- `Town05`, `Town05_Opt` - Urban area with bridge and tunnel
-- `Town06`, `Town06_Opt` - Urban area with multiple lane highway
-- `Town07`, `Town07_Opt` - Rural environment with narrow roads
-- `Town10HD`, `Town10HD_Opt` - High-definition urban area
-- `Town11`, `Town12`, `Town13`, `Town15` - Additional urban variations
-
-**Special Maps:**
-- `AnnotationColorLandscape` - Testing environment
-
-**Note:** `_Opt` versions have optimized geometry for better performance.
-
-### 🌤️ Weather Presets
-
-Control environmental conditions with weather presets:
-
-**Clear Weather:**
-- `ClearNoon`, `ClearSunset`, `ClearNight` - Clear sky conditions
-
-**Cloudy Weather:**
-- `CloudyNoon`, `CloudySunset`, `CloudyNight` - Overcast conditions
-
-**Wet Weather:**
-- `WetNoon`, `WetSunset`, `WetNight` - Wet roads, no rain
-- `WetCloudyNoon`, `WetCloudySunset`, `WetCloudyNight` - Wet and cloudy
-
-**Rainy Weather:**
-- `SoftRainNoon`, `SoftRainSunset`, `SoftRainNight` - Light rain
-- `MidRainyNoon`, `MidRainSunset`, `MidRainyNight` - Moderate rain
-- `HardRainNoon`, `HardRainSunset`, `HardRainNight` - Heavy rain
-
-**Extreme Weather:**
-- `DustStorm` - Desert dust storm conditions
-
-**Default:**
-- `Default` - CARLA's default weather
-
-**Example usage in config:**
-```yaml
-recording:
-  map: Town03
-  weather: HardRainNoon  # Heavy rain at noon
-```
-
-### 📷 Supported Sensor Types
-
-- `sensor.camera.rgb` - RGB Camera
-- `sensor.camera.depth` - Depth Camera
-- `sensor.camera.semantic_segmentation` - Semantic Segmentation Camera
-- `sensor.lidar.ray_cast` - LiDAR
-- `sensor.lidar.ray_cast_semantic` - Semantic LiDAR
-- `sensor.other.radar` - Radar
-
-### 🚗 Actor Types
-
-- **Vehicles**: `vehicle.tesla.model3`, `vehicle.audi.a2`, etc.
-- **Infrastructure**: Static roadside sensors for V2X scenarios
-
-### ⚠️ Configuration Constraints
-
-The configuration manager validates that:
-
-- `fixed_delta_seconds <= max_substep_delta_time * max_substeps`
-- All sensor types are valid according to CARLA 0.9.16 API
-- Required fields are present
-- Spawn points and coordinates are properly formatted
-
----
-
-## 📊 Data Format
-
-### Raw Data Structure
-
-```
-raw_data/
-└── record_YYYY_MMDD_HHMM/
-    ├── carla_raw_record.log           # CARLA recorder log
-    ├── vehicle.tesla.model3_1/
-    │   ├── 000001_image_2.png         # RGB images
-    │   ├── 000001_image_2_semantic.png
-    │   ├── 000001_velodyne.npy        # LiDAR (Nx4: x,y,z,intensity)
-    │   ├── 000001_velodyne_semantic.npy
-    │   ├── 000001_radar_front.npy
-    │   ├── sensor_data.csv            # Sensor poses
-    │   └── vehicle_data.csv           # Vehicle state
-    └── others.world_0/
-        └── 000001_objects.pkl         # Object labels
-```
-
-### Labeled Dataset Structure (KITTI Format)
-
-```
-dataset/
-└── record_YYYY_MMDD_HHMM/
-    └── vehicle.tesla.model3_1/
-        └── kitti_object/
-            ├── ImageSets/
-            │   ├── train.txt
-            │   └── val.txt
-            └── training/
-                ├── calib/         # Calibration files
-                ├── image_2/       # RGB images
-                ├── label_2/       # 3D bounding box labels
-                └── velodyne/      # Point clouds (.bin)
-```
-
-### Coordinate Systems
-
-- **Raw Data**: Right-hand coordinate system (X: forward, Y: right, Z: up)
-- **KITTI Format**: Camera coordinate system (X: right, Y: down, Z: forward)
-- **Transformation**: Automatic conversion during labeling process
-
----
-
-## 🔬 Advanced Usage
-
-### Custom Spawn Points
-
-To find spawn points in a map:
-
-```python
-import carla
-
-client = carla.Client('localhost', 2000)
-world = client.get_world()
-spawn_points = world.get_map().get_spawn_points()
-
-for i, point in enumerate(spawn_points):
-    print(f"Spawn point {i}: {point.location}")
-```
-
-### Multi-Vehicle Recording
-
-Edit `config/actor_settings_template.json` to add multiple vehicles with different sensor configurations:
-
-```json
-{
-    "actors": [
-        {
-            "type": "vehicle.tesla.model3",
-            "name": "ego_vehicle",
-            "sensors_setting": "sensor_config_template.json",
-            "spawn_point": 73
-        },
-        {
-            "type": "vehicle.audi.a2",
-            "name": "following_vehicle",
-            "sensors_setting": "sensor_config_simple.json",
-            "spawn_point": 76
-        }
-    ]
-}
-```
-
-### Infrastructure (V2X) Recording
-
-Include infrastructure sensors for roadside units:
-
-```json
-{
-    "type": "infrastructure",
-    "name": "rsu_intersection_1",
-    "sensors_setting": "sensor_config_infrastructure_template.json",
-    "spawn_point": {"x": 41, "y": -240, "z": 15.0}
-}
-```
-
----
-
-## 🐛 Troubleshooting
-
-### Issue: `ModuleNotFoundError: No module named 'carla'`
-
-**Solution:**
-1. Verify CARLA_ROOT is set: `echo $CARLA_ROOT`
-2. Check PYTHONPATH includes the correct .egg file
-3. Ensure the .egg file matches your Python version
-
-### Issue: Connection refused to CARLA server
-
-**Solution:**
-1. Ensure CARLA server is running: `./CarlaUE4.sh`
-2. Check the port (default: 2000): `python3 data_recorder.py -p 2000`
-3. Verify firewall settings
-
-### Issue: Low FPS / Slow recording
-
-**Solution:**
-1. Reduce sensor count in configuration
-2. Lower sensor resolution (image_size_x, image_size_y)
-3. Increase frame_step to skip frames
-4. Use headless mode: `./CarlaUE4.sh -RenderOffScreen`
-
-### Issue: Numpy version conflict
-
-**Solution:**
-```bash
-pip3 install "numpy>=1.24.4,<2.0"
-```
+> Download CARLA: [https://github.com/carla-simulator/carla/releases](https://github.com/carla-simulator/carla/releases)
 
 ---
 
@@ -533,61 +126,30 @@ pip3 install "numpy>=1.24.4,<2.0"
 carla_dataset_tools/
 ├── config/                      # Configuration management
 │   ├── config_manager.py        # YAML config loader and validator
-│   └── profiles/                # Pre-configured profiles
-│       ├── default.yaml         # Default configuration
-│       ├── kitti.yaml           # KITTI dataset style
-│       ├── argoverse.yaml       # Argoverse dataset style
-│       └── simple.yaml          # Simple testing config
-├── label_tools/                 # Labeling scripts
-│   ├── kitti_objects_label.py   # KITTI format labeling
-│   ├── yolo_label.py            # YOLOv5 format labeling
-│   └── kitti_object/            # KITTI utilities
+│   └── profiles/                # Pre-configured profiles (default, kitti, argoverse, simple)
+├── docs/                        # Documentation
+│   ├── USER_GUIDE.md            # User guide (English)
+│   ├── USER_GUIDE_CN.md         # User guide (Chinese)
+│   ├── DEVELOPER.md             # Developer guide (English)
+│   └── DEVELOPER_CN.md          # Developer guide (Chinese)
+├── label_tools/                 # Labeling scripts (KITTI, YOLO, Argoverse)
 ├── recorder/                    # Core recording modules
-│   ├── actor_tree.py            # Actor hierarchy management
-│   ├── actor_factory.py         # Actor and sensor spawning
-│   ├── vehicle.py               # Vehicle recording
-│   ├── sensor.py                # Base sensor class
-│   ├── camera.py                # Camera sensors
-│   ├── lidar.py                 # LiDAR sensors
-│   ├── radar.py                 # Radar sensor
-│   └── agents/                  # Autopilot agents
 ├── utils/                       # Utility scripts
-│   ├── visualize_lidar.py       # Point cloud visualization
-│   ├── validate_config.py       # Config validation tool
-│   ├── list_profiles.py         # List available profiles
-│   ├── convert_json_to_yaml.py  # JSON to YAML converter
-│   ├── transform.py             # Coordinate transformations
-│   └── geometry_types.py        # Geometry utilities
-├── data_recorder.py             # Main recording script
-├── param.py                     # Global parameters
-├── requirements.txt             # Python dependencies
-└── README.md
+└── data_recorder.py             # Main recording script
 ```
 
 ---
 
 ## 🤝 Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+Contributions are welcome! Areas for contribution:
 
-**Areas for contribution:**
 - Additional dataset format support (nuScenes, Waymo, etc.)
 - Enhanced documentation and examples
 - Bug fixes and performance improvements
 - New sensor types or features
 
----
-
-## 📝 TODO
-
-- [x] Data recorder tool
-- [x] Data labeling tool for KITTI format (object)
-- [x] YOLOv5 labeling tool
-- [x] Argoverse example
-- [x] Enhanced documentation
-- [ ] nuScenes format support
-- [ ] Real-time visualization
-- [ ] Automated testing suite
+Please submit pull requests to the main repository.
 
 ---
 
@@ -612,7 +174,7 @@ If you use this tool in your research, please cite:
 
 ## 🙏 Acknowledgements
 
-This project builds upon the following excellent works:
+This project builds upon:
 
 - [**CARLA Simulator**](https://carla.org/) - Open-source autonomous driving simulator
 - [**CARLA ROS Bridge**](https://github.com/carla-simulator/ros-bridge) - ROS integration for CARLA
@@ -630,6 +192,7 @@ This project is licensed under the GNU General Public License v3.0 - see the [LI
 
 - **Issues**: [GitHub Issues](https://github.com/KevinLADLee/carla_dataset_tools/issues)
 - **Project**: [CarlaFLCAV](https://github.com/SIAT-INVS/CarlaFLCAV)
+- **Documentation**: [User Guide](docs/USER_GUIDE.md) | [Developer Guide](docs/DEVELOPER.md)
 
 ---
 
@@ -637,6 +200,6 @@ This project is licensed under the GNU General Public License v3.0 - see the [LI
 
 **⭐ If this project helps your research, please give us a star! ⭐**
 
-[🏠 Home](https://github.com/KevinLADLee/carla_dataset_tools) • [📖 Documentation](#) • [🐛 Report Bug](https://github.com/KevinLADLee/carla_dataset_tools/issues) • [💡 Request Feature](https://github.com/KevinLADLee/carla_dataset_tools/issues)
+[🏠 Home](https://github.com/KevinLADLee/carla_dataset_tools) • [📖 User Guide](docs/USER_GUIDE.md) • [🔧 Developer Guide](docs/DEVELOPER.md) • [🐛 Report Bug](https://github.com/KevinLADLee/carla_dataset_tools/issues)
 
 </div>

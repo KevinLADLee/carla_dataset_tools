@@ -1,0 +1,657 @@
+# CARLA Dataset Tools - Developer Guide
+
+This guide covers architecture, configuration details, API reference, and advanced usage for developers.
+
+## Table of Contents
+
+- [Architecture Overview](#architecture-overview)
+- [Configuration System](#configuration-system)
+- [API Reference](#api-reference)
+- [Advanced Usage](#advanced-usage)
+- [Extending the Toolkit](#extending-the-toolkit)
+- [Development Workflow](#development-workflow)
+
+---
+
+## Architecture Overview
+
+### Project Structure
+
+```
+carla_dataset_tools/
+├── config/                      # Configuration management
+│   ├── config_manager.py        # YAML config loader and validator
+│   └── profiles/                # Pre-configured profiles
+│       ├── default.yaml         # Default configuration
+│       ├── kitti.yaml           # KITTI dataset style
+│       ├── argoverse.yaml       # Argoverse dataset style
+│       └── simple.yaml          # Simple testing config
+├── label_tools/                 # Labeling scripts
+│   ├── kitti_objects_label.py   # KITTI format labeling
+│   ├── yolo_label.py            # YOLOv5 format labeling
+│   └── kitti_object/            # KITTI utilities
+├── recorder/                    # Core recording modules
+│   ├── actor_tree.py            # Actor hierarchy management
+│   ├── actor_factory.py         # Actor and sensor spawning
+│   ├── vehicle.py               # Vehicle recording
+│   ├── sensor.py                # Base sensor class
+│   ├── camera.py                # Camera sensors
+│   ├── lidar.py                 # LiDAR sensors
+│   ├── radar.py                 # Radar sensor
+│   └── agents/                  # Autopilot agents
+├── utils/                       # Utility scripts
+│   ├── visualize_lidar.py       # Point cloud visualization
+│   ├── validate_config.py       # Config validation tool
+│   ├── list_profiles.py         # List available profiles
+│   ├── convert_json_to_yaml.py  # JSON to YAML converter
+│   ├── transform.py             # Coordinate transformations
+│   └── geometry_types.py        # Geometry utilities
+├── data_recorder.py             # Main recording script
+└── param.py                     # Global parameters
+```
+
+### Core Components
+
+#### 1. ConfigManager (config/config_manager.py)
+
+Centralized configuration management with validation:
+
+```python
+class ConfigManager:
+    """
+    Manages YAML configuration loading and validation
+
+    Features:
+    - Profile-based configuration
+    - CARLA 0.9.16 API validation
+    - Map and weather preset validation
+    - Security: 10MB file size limit
+    """
+```
+
+#### 2. ActorTree (recorder/actor_tree.py)
+
+Hierarchical management of actors and sensors:
+
+```python
+class ActorTree:
+    """
+    Manages actor hierarchy and data recording
+
+    Structure:
+    World
+    ├── Vehicle_1
+    │   ├── Camera_1
+    │   ├── LiDAR_1
+    │   └── ...
+    ├── Vehicle_2
+    └── Infrastructure_1
+    """
+```
+
+#### 3. ActorFactory (recorder/actor_factory.py)
+
+Spawns and configures actors and sensors:
+
+```python
+class ActorFactory:
+    """
+    Factory pattern for creating CARLA actors
+
+    Responsibilities:
+    - Spawn vehicles and infrastructure
+    - Attach sensors to parent actors
+    - Configure autopilot and traffic manager
+    """
+```
+
+#### 4. Sensor Classes (recorder/camera.py, lidar.py, radar.py)
+
+Base sensor class with specific implementations:
+
+```python
+class Sensor:
+    """Base sensor class with callback handling"""
+
+class Camera(Sensor):
+    """RGB, depth, semantic segmentation cameras"""
+
+class Lidar(Sensor):
+    """Ray-cast and semantic LiDAR"""
+
+class Radar(Sensor):
+    """Radar sensor"""
+```
+
+---
+
+## Configuration System
+
+### YAML Structure
+
+Configuration files use YAML format with the following sections:
+
+```yaml
+# Recording settings
+recording:
+  frame_total: 12000        # Total frames to record
+  frame_step: 3             # Save every N frames
+  map: Town02               # CARLA map name
+  weather: ClearNoon        # Weather preset (optional)
+
+# Spectator camera position
+spectator:
+  x: 100.0
+  y: -150.0
+  z: 150.0
+  pitch: 60.0
+  yaw: -90.0
+  roll: 0.0
+
+# World physics settings
+world_settings:
+  synchronous_mode: true
+  fixed_delta_seconds: 0.1
+  substepping: true
+  max_substep_delta_time: 0.01
+  max_substeps: 16
+
+# Traffic light timings
+traffic_lights:
+  red_time: 2.0
+  green_time: 2.0
+  yellow_time: 0.01
+
+# Sensor templates (YAML anchors for reuse)
+sensor_templates:
+  rgb_camera: &rgb_camera
+    type: sensor.camera.rgb
+    image_size_x: 800
+    image_size_y: 600
+    fov: 90.0
+
+# Vehicle and sensor actors
+actors:
+  - type: vehicle.tesla.model3
+    name: ego_vehicle
+    spawn_point: 73
+    sensors:
+      - <<: *rgb_camera        # Reuse template
+        name: front_camera
+        spawn_point:
+          x: 2.0
+          y: 0.0
+          z: 2.0
+          roll: 0.0
+          pitch: 0.0
+          yaw: 0.0
+
+# Background traffic
+other_vehicles:
+  count: 50
+  spawn_points: [44, 55, 64]
+```
+
+### Available Maps (CARLA 0.9.16)
+
+**Town Maps:**
+- `Town01`, `Town01_Opt` - Simple town with basic road network
+- `Town02`, `Town02_Opt` - Small town with various intersections
+- `Town03`, `Town03_Opt` - Larger urban area with roundabout
+- `Town04`, `Town04_Opt` - Small town with highway
+- `Town05`, `Town05_Opt` - Urban area with bridge and tunnel
+- `Town06`, `Town06_Opt` - Urban area with multiple lane highway
+- `Town07`, `Town07_Opt` - Rural environment with narrow roads
+- `Town10HD`, `Town10HD_Opt` - High-definition urban area
+- `Town11`, `Town12`, `Town13`, `Town15` - Additional urban variations
+
+**Special Maps:**
+- `AnnotationColorLandscape` - Testing environment
+
+**Note:** `_Opt` versions have optimized geometry for better performance.
+
+### Weather Presets
+
+Control environmental conditions with weather presets:
+
+**Clear Weather:**
+- `ClearNoon`, `ClearSunset`, `ClearNight` - Clear sky conditions
+
+**Cloudy Weather:**
+- `CloudyNoon`, `CloudySunset`, `CloudyNight` - Overcast conditions
+
+**Wet Weather:**
+- `WetNoon`, `WetSunset`, `WetNight` - Wet roads, no rain
+- `WetCloudyNoon`, `WetCloudySunset`, `WetCloudyNight` - Wet and cloudy
+
+**Rainy Weather:**
+- `SoftRainNoon`, `SoftRainSunset`, `SoftRainNight` - Light rain
+- `MidRainyNoon`, `MidRainSunset`, `MidRainyNight` - Moderate rain
+- `HardRainNoon`, `HardRainSunset`, `HardRainNight` - Heavy rain
+
+**Extreme Weather:**
+- `DustStorm` - Desert dust storm conditions
+
+**Default:**
+- `Default` - CARLA's default weather
+
+### Supported Sensor Types (CARLA 0.9.16)
+
+- `sensor.camera.rgb` - RGB Camera
+- `sensor.camera.depth` - Depth Camera
+- `sensor.camera.semantic_segmentation` - Semantic Segmentation Camera
+- `sensor.lidar.ray_cast` - LiDAR
+- `sensor.lidar.ray_cast_semantic` - Semantic LiDAR
+- `sensor.other.radar` - Radar
+
+### Configuration Validation
+
+The ConfigManager validates:
+
+1. **File size**: Maximum 10MB (security)
+2. **YAML syntax**: Valid YAML structure
+3. **Required fields**: All mandatory fields present
+4. **Sensor types**: Match CARLA 0.9.16 API
+5. **Maps**: Valid map names
+6. **Weather**: Valid weather presets
+7. **Physics constraints**: `fixed_delta_seconds <= max_substep_delta_time * max_substeps`
+
+### YAML Advanced Features
+
+#### Anchors and Aliases
+
+Reuse configurations with YAML anchors:
+
+```yaml
+sensor_templates:
+  # Define template with anchor
+  base_camera: &base_camera
+    type: sensor.camera.rgb
+    image_size_x: 800
+    image_size_y: 600
+    fov: 90.0
+
+actors:
+  - type: vehicle.tesla.model3
+    sensors:
+      # Reuse template and override specific fields
+      - <<: *base_camera
+        name: front_camera
+        spawn_point: {x: 2.0, y: 0.0, z: 2.0}
+
+      - <<: *base_camera
+        name: rear_camera
+        spawn_point: {x: -2.0, y: 0.0, z: 2.0, yaw: 180.0}
+```
+
+#### Comments
+
+YAML supports inline and block comments:
+
+```yaml
+recording:
+  frame_total: 12000        # Total frames to record
+  frame_step: 3             # Save every 3rd frame
+```
+
+---
+
+## API Reference
+
+### ConfigManager API
+
+```python
+from config.config_manager import ConfigManager, ConfigValidationError
+
+# Initialize
+config_manager = ConfigManager(config_root="/path/to/config")
+
+# Load profile
+config = config_manager.load_profile("kitti")
+
+# Load custom config file
+config = config_manager.load_config("/path/to/config.yaml")
+
+# List available profiles
+profiles = config_manager.list_profiles()
+
+# Validate configuration
+try:
+    config = config_manager.load_profile("my_profile")
+except ConfigValidationError as e:
+    print(f"Validation error: {e}")
+```
+
+### ActorTree API
+
+```python
+from recorder.actor_tree import ActorTree
+
+# Initialize with world and configuration
+actor_tree = ActorTree(world, config, save_dir)
+actor_tree.init()
+
+# Tick controller (update autopilot)
+actor_tree.tick_controller()
+
+# Save data for current frame
+actor_tree.tick_data_saving(frame_id, timestamp)
+
+# Cleanup
+actor_tree.destroy()
+```
+
+### Sensor API
+
+```python
+from recorder.camera import Camera
+from recorder.lidar import Lidar
+from recorder.radar import Radar
+
+# Create sensor instance
+camera = Camera(world, sensor_config, parent_actor, save_dir)
+
+# Sensors automatically register callbacks
+# Data is saved when tick_data_saving() is called
+
+# Access sensor attributes
+sensor_transform = camera.get_transform()
+```
+
+### Transform Utilities
+
+```python
+from utils.transform import Transform, Location, Rotation
+from utils.transform import transform_to_carla_transform
+
+# Create transform
+transform = Transform(
+    Location(x=10.0, y=5.0, z=2.0),
+    Rotation(pitch=0.0, yaw=90.0, roll=0.0)
+)
+
+# Convert to CARLA transform
+carla_transform = transform_to_carla_transform(transform)
+
+# Apply to actor
+actor.set_transform(carla_transform)
+```
+
+---
+
+## Advanced Usage
+
+### Custom Spawn Points
+
+Find spawn points in a map:
+
+```python
+import carla
+
+client = carla.Client('localhost', 2000)
+world = client.get_world()
+spawn_points = world.get_map().get_spawn_points()
+
+for i, point in enumerate(spawn_points):
+    print(f"Spawn point {i}: {point.location}")
+```
+
+### Infrastructure (V2X) Recording
+
+Include roadside sensors for V2X scenarios:
+
+```yaml
+actors:
+  - type: infrastructure
+    name: rsu_intersection_1
+    spawn_point:
+      x: 41
+      y: -240
+      z: 15.0
+    sensors:
+      - type: sensor.camera.rgb
+        name: infra_camera
+        spawn_point: {x: 0.0, y: 0.0, z: 0.0}
+```
+
+### Multi-Vehicle Synchronized Recording
+
+Configure multiple vehicles with different sensor setups:
+
+```yaml
+actors:
+  - type: vehicle.tesla.model3
+    name: ego_vehicle
+    spawn_point: 73
+    sensors: [...]
+
+  - type: vehicle.audi.a2
+    name: following_vehicle
+    spawn_point: 76
+    sensors: [...]
+```
+
+All vehicles are synchronized using CARLA's synchronous mode.
+
+### Custom Weather Conditions
+
+Apply custom weather parameters programmatically:
+
+```python
+import carla
+
+world = client.get_world()
+weather = carla.WeatherParameters(
+    cloudiness=80.0,
+    precipitation=30.0,
+    sun_altitude_angle=70.0
+)
+world.set_weather(weather)
+```
+
+### Traffic Manager Configuration
+
+Configure traffic behavior:
+
+```python
+tm = client.get_trafficmanager()
+tm.set_synchronous_mode(True)
+tm.set_global_distance_to_leading_vehicle(2.5)
+tm.set_respawn_dormant_vehicles(True)
+tm.set_hybrid_physics_mode(True)  # Optimize distant vehicles
+```
+
+---
+
+## Extending the Toolkit
+
+### Adding New Sensor Types
+
+1. **Create sensor class** in `recorder/`:
+
+```python
+from recorder.sensor import Sensor
+
+class MySensor(Sensor):
+    def __init__(self, world, sensor_info, parent_actor, save_dir):
+        super().__init__(world, sensor_info, parent_actor, save_dir)
+        self._init_sensor()
+
+    def _init_sensor(self):
+        blueprint = self.world.get_blueprint_library().find(self.sensor_type)
+        # Configure blueprint attributes
+        self.sensor = self.world.spawn_actor(
+            blueprint, self.transform, attach_to=self.parent_actor
+        )
+        self.sensor.listen(self._on_data)
+
+    def _on_data(self, data):
+        # Process and save sensor data
+        pass
+```
+
+2. **Register in ActorFactory** (`recorder/actor_factory.py`):
+
+```python
+from recorder.my_sensor import MySensor
+
+class ActorFactory:
+    def create_sensor_node(self, sensor_info, parent_node):
+        if sensor_type == "sensor.my.type":
+            return MySensor(self.world, sensor_info, parent_actor, save_dir)
+```
+
+3. **Update ConfigManager** validation:
+
+```python
+VALID_SENSOR_TYPES = {
+    'sensor.my.type',
+    # ... existing types
+}
+```
+
+### Adding New Dataset Formats
+
+1. **Create labeling script** in `label_tools/`:
+
+```python
+# label_tools/my_format_label.py
+
+def convert_to_my_format(raw_data_path, output_path):
+    # Load raw data
+    # Transform to dataset format
+    # Write output files
+    pass
+```
+
+2. **Follow existing patterns** from `kitti_objects_label.py` or `yolo_label.py`
+
+3. **Add documentation** to USER_GUIDE.md
+
+### Custom Configuration Profiles
+
+Create specialized profiles for specific scenarios:
+
+```yaml
+# config/profiles/urban_night.yaml
+recording:
+  map: Town03
+  weather: ClearNight
+  frame_total: 5000
+
+# High-sensitivity night camera
+sensor_templates:
+  night_camera: &night_camera
+    type: sensor.camera.rgb
+    image_size_x: 1920
+    image_size_y: 1080
+    fov: 90.0
+    exposure_mode: manual
+    exposure_compensation: 0.5
+```
+
+---
+
+## Development Workflow
+
+### Setting Up Development Environment
+
+```bash
+# Clone repository
+git clone https://github.com/KevinLADLee/carla_dataset_tools.git
+cd carla_dataset_tools
+
+# Create virtual environment
+python3 -m venv venv
+source venv/bin/activate
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Install development tools
+pip install pytest black flake8
+```
+
+### Running Tests
+
+```bash
+# Validate all profiles
+python3 utils/validate_config.py --all
+
+# Test configuration loading
+python3 -c "from config.config_manager import ConfigManager; \
+             cm = ConfigManager('config'); \
+             config = cm.load_profile('default'); \
+             print('Success!')"
+```
+
+### Code Style
+
+Follow PEP 8 guidelines:
+
+```bash
+# Format code
+black data_recorder.py
+
+# Check style
+flake8 recorder/ --max-line-length=100
+```
+
+### Git Workflow
+
+```bash
+# Create feature branch
+git checkout -b feature/my-new-feature
+
+# Make changes and commit
+git add .
+git commit -m "Add: My new feature"
+
+# Push to remote
+git push origin feature/my-new-feature
+```
+
+### Debugging Tips
+
+1. **Enable CARLA logging:**
+```python
+import logging
+logging.basicConfig(level=logging.DEBUG)
+```
+
+2. **Check sensor callbacks:**
+```python
+def _on_data(self, data):
+    print(f"Received data: {data.frame} at {data.timestamp}")
+    # Process data
+```
+
+3. **Verify spawn points:**
+```bash
+python3 utils/find_spawn_points.py --map Town02
+```
+
+4. **Monitor performance:**
+```python
+import time
+start = time.time()
+# ... operation ...
+print(f"Operation took {time.time() - start:.3f}s")
+```
+
+---
+
+## Contributing
+
+Contributions are welcome! Areas for contribution:
+
+- Additional dataset format support (nuScenes, Waymo, etc.)
+- Enhanced documentation and examples
+- Bug fixes and performance improvements
+- New sensor types or features
+
+Please submit pull requests to the main repository.
+
+---
+
+[← Back to README](../README.md) | [User Guide ←](USER_GUIDE.md)
