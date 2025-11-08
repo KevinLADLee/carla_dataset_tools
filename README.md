@@ -44,8 +44,12 @@ cd $CARLA_ROOT && ./CarlaUE4.sh
 cd carla_dataset_tools
 python3 data_recorder.py --profile kitti
 
-# 5. Generate labels
-python3 label_tools/kitti_objects_label.py -r record_YYYY_MMDD_HHMM
+# 5. Generate labels 
+python3 label_tools/kitti_objects_label.py -r record_YYYY_MMDD_HHMM -v vehicle_1st
+
+# 6. Visulize output dataset
+python3 utils/visualize_lidar.py --type kitti --source dataset/record_YYYY_MMDD_HHMM/vehicle_1st/kitti_object/training/velodyne
+
 ```
 
 ---
