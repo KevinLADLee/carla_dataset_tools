@@ -60,9 +60,8 @@ class Node(object):
             self._actor.control_step()
 
     def tick_data_saving(self, frame_id, timestamp):
-        if self.get_node_type() == NodeType.SENSOR \
-                or NodeType.VEHICLE \
-                or NodeType.WORLD:
+        # Fixed condition: check if node type is one of SENSOR, VEHICLE, or WORLD
+        if self.get_node_type() in (NodeType.SENSOR, NodeType.VEHICLE, NodeType.WORLD):
             self._actor.save_to_disk(frame_id, timestamp, True)
 
 

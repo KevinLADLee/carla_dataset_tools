@@ -36,7 +36,8 @@ class ActorTree(object):
         thread_pool = ThreadPool()
         frame_id_list = [frame_id for i in range(len(self.node_list))]
         timestamp_list = [timestamp for i in range(len(self.node_list))]
-        thread_pool.starmap_async(self.save_data, zip(frame_id_list, timestamp_list, self.node_list))
+        # Changed from starmap_async to starmap to propagate exceptions
+        thread_pool.starmap(self.save_data, zip(frame_id_list, timestamp_list, self.node_list))
         thread_pool.close()
         thread_pool.join()
 

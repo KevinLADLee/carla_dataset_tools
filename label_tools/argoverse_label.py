@@ -6,7 +6,6 @@ import os
 import pickle
 import sys
 import time
-import pandas as pd
 from pathlib import Path
 sys.path.append(Path(__file__).parent.parent.as_posix())
 from param import RAW_DATA_PATH, DATASET_PATH
@@ -17,28 +16,30 @@ def get_frame_from_fullpath(path: str) -> int:
 
 
 def load_object_labels(path: str):
+    """Load object label paths, return as a list of dictionaries."""
     object_labels_path_list = sorted(glob.glob("{}/*.pkl".format(path)))
-    object_labels_df = pd.DataFrame(columns=['frame', 'object_labels_path'])
+    object_labels_list = []
+
     for objects_labels_rawdata_path in object_labels_path_list:
         frame = get_frame_from_fullpath(objects_labels_rawdata_path)
-        object_labels_df = object_labels_df.append({'frame': frame,
-                                                    'object_labels_path': objects_labels_rawdata_path},
-                                                   ignore_index=True)
-    return object_labels_df
+        object_labels_list.append({
+            'frame': frame,
+            'object_labels_path': objects_labels_rawdata_path
+        })
+
+    return object_labels_list
 
 
 def gather_rawdata_to_dataframe(record_name: str):
-    rawdata_frames_df = pd.DataFrame()
-    object_labels_path_df = load_object_labels("{}/{}/others.world_0".format(RAW_DATA_PATH, record_name))
-    rawdata_frames_df = object_labels_path_df
-    rawdata_frames_df = rawdata_frames_df.reset_index(drop=False)
-    return rawdata_frames_df
+    """Gather raw data into a list of frame dictionaries."""
+    object_labels_list = load_object_labels("{}/{}/others.world_0".format(RAW_DATA_PATH, record_name))
+    return object_labels_list
 
 
 class ArgoverseLabelTool:
-    def __init__(self, record_name, rawdata_df: pd.DataFrame, output_dir=None):
+    def __init__(self, record_name, rawdata_list: list, output_dir=None):
         self.record_name = record_name
-        self.rawdata_df = rawdata_df
+        self.rawdata_list = rawdata_list
         self.output_dir = output_dir
         self.fieldnames = ['TIMESTAMP',
                            'TRACK_ID',
@@ -65,7 +66,7 @@ class ArgoverseLabelTool:
             writer = csv.DictWriter(csv_file, fieldnames=self.fieldnames)
             writer.writeheader()
 
-        for index, frame in self.rawdata_df.iterrows():
+        for index, frame in enumerate(self.rawdata_list):
             self.process_frame(index, frame)
 
         print("Cost: {:0<3f}s".format(time.time() - start))
@@ -138,9 +139,9 @@ def main():
 
     record_name = args.record
 
-    rawdata_df = gather_rawdata_to_dataframe(args.record)
+    rawdata_list = gather_rawdata_to_dataframe(args.record)
     print("Process {} ".format(record_name))
-    argo = ArgoverseLabelTool(record_name, rawdata_df, args.output_dir)
+    argo = ArgoverseLabelTool(record_name, rawdata_list, args.output_dir)
     argo.process()
 
 

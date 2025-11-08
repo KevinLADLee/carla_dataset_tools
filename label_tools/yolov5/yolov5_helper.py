@@ -8,7 +8,6 @@ import glob
 import sys
 from pathlib import Path
 import numpy as np
-import pandas as pd
 import yaml
 
 
@@ -17,12 +16,12 @@ class YoloConfig:
     color_pixels_min = 30
 
 
-LABEL_DATAFRAME = pd.DataFrame(columns=['raw_value', 'color', 'coco_names_index'],
-                               data=[
-                                     # [ 4, (220, 20, 60), 0],
-                                     [18, (250, 170, 30), 9],
-                                     [12, (220, 220,  0), 80],
-                               ])
+# Convert DataFrame to a list of dictionaries for label lookup
+LABEL_LIST = [
+    # {'raw_value': 4, 'color': (220, 20, 60), 'coco_names_index': 0},
+    {'raw_value': 18, 'color': (250, 170, 30), 'coco_names_index': 9},
+    {'raw_value': 12, 'color': (220, 220, 0), 'coco_names_index': 80},
+]
 
 TL_LIGHT_LABEL = {'DEFAULT': 9,
                   'RED': 82,

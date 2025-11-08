@@ -69,7 +69,11 @@ class DataRecorder:
             settings.substepping = True
             settings.max_substep_delta_time = world_settings["max_substep_delta_time"]
             settings.max_substeps = world_settings["max_substeps"]
+
+            print("world settings: ", settings)
             self.world.apply_settings(settings)
+            
+            print("Set synchronous mode now...")
             self.tm.set_synchronous_mode(True)
 
             self.frame_total = json_settings["frame_total"]

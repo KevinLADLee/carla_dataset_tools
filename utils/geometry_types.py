@@ -148,13 +148,13 @@ class Transform:
     def transform(self, point: Vector3d):
         trans_mat = self.get_matrix()
         p = numpy.concatenate((point.get_vector(), numpy.array([[1]])), axis=0)
-        p = numpy.matmul(trans_mat, p, dtype=numpy.float)
+        p = numpy.matmul(trans_mat, p, dtype=numpy.float64)
         return Vector3d(p[0, 0], p[1, 0], p[2, 0])
 
     def inv_transform(self, point: Vector3d):
         trans_mat = self.get_inverse_matrix()
         p = numpy.concatenate((point.get_vector(), numpy.array([[1]])), axis=0)
-        p = numpy.matmul(trans_mat, p, dtype=numpy.float)
+        p = numpy.matmul(trans_mat, p, dtype=numpy.float64)
         return Vector3d(p[0, 0], p[1, 0], p[2, 0])
 
     def __eq__(self, other):

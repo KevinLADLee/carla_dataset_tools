@@ -20,7 +20,13 @@ class WorldActor(PseudoActor):
         # Frame Timestamp CityObjectLabel carla_id location rotation box_location box_extent
         object_labels = []
 
-        object_labels += self.get_env_objects_labels(frame_id, timestamp, carla.CityObjectLabel.Vehicles)
+        # Get environment objects for different vehicle types (CARLA 0.9.16 API)
+        # In CARLA 0.9.16, CityObjectLabel.Vehicles was removed, use specific types instead
+        object_labels += self.get_env_objects_labels(frame_id, timestamp, carla.CityObjectLabel.Car)
+        object_labels += self.get_env_objects_labels(frame_id, timestamp, carla.CityObjectLabel.Truck)
+        object_labels += self.get_env_objects_labels(frame_id, timestamp, carla.CityObjectLabel.Bus)
+        object_labels += self.get_env_objects_labels(frame_id, timestamp, carla.CityObjectLabel.Motorcycle)
+        object_labels += self.get_env_objects_labels(frame_id, timestamp, carla.CityObjectLabel.Bicycle)
         object_labels += self.get_env_objects_labels(frame_id, timestamp, carla.CityObjectLabel.Pedestrians)
 
         carla_actors = self.carla_world.get_actors()
@@ -61,7 +67,10 @@ class WorldActor(PseudoActor):
 
     def get_env_objects_labels(self, frame, timestamp, object_type: carla.CityObjectLabel) -> list:
         object_labels = []
-        if object_type == carla.CityObjectLabel.Vehicles:
+        # Map CARLA 0.9.16 CityObjectLabel types to our label types
+        if object_type in (carla.CityObjectLabel.Car, carla.CityObjectLabel.Truck,
+                           carla.CityObjectLabel.Bus, carla.CityObjectLabel.Motorcycle,
+                           carla.CityObjectLabel.Bicycle):
             label_type = 'vehicle'
         elif object_type == carla.CityObjectLabel.Pedestrians:
             label_type = 'pedestrian'

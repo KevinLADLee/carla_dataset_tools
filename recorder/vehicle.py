@@ -103,20 +103,24 @@ class Vehicle(Actor):
                     self.first_tick = False
 
         # Save vehicle status to csv file
-        # frame_id x, y, z, roll, pitch, yaw, speed, acceleration
-        with open('{}/vehicle_status.csv'.format(self.save_dir), 'a', encoding='utf-8') as csv_file:
-            writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
-            csv_line = {'frame': frame_id,
-                        'timestamp': timestamp,
-                        'speed': self.get_speed()}
-            csv_line.update(self.get_acceleration().to_dict(prefix='a'))
-            csv_line.update(self.get_velocity().to_dict(prefix='v'))
-            csv_line.update(self.get_transform().to_dict())
-            csv_line.update(self.vehicle_control_to_dict(self.get_control()))
-            writer.writerow(csv_line)
+        try:
+            with open('{}/vehicle_status.csv'.format(self.save_dir), 'a', encoding='utf-8') as csv_file:
+                writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
+                csv_line = {'frame': frame_id,
+                            'timestamp': timestamp,
+                            'speed': self.get_speed()}
+                csv_line.update(self.get_acceleration().to_dict(prefix='a'))
+                csv_line.update(self.get_velocity().to_dict(prefix='v'))
+                csv_line.update(self.get_transform().to_dict())
+                csv_line.update(self.vehicle_control_to_dict(self.get_control()))
+                writer.writerow(csv_line)
 
-        if debug:
-            print("\tVehicle status recorded: uid={} name={}".format(self.uid, self.name))
+            if debug:
+                print("\tVehicle status recorded: uid={} name={}".format(self.uid, self.name))
+        except Exception as e:
+            import traceback
+            print("\tERROR: Failed to save vehicle status for uid={} name={}: {}".format(self.uid, self.name, e))
+            traceback.print_exc()
 
     def save_vehicle_info(self):
         # TODO: Save vehicle physics info here

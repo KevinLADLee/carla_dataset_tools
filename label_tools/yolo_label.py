@@ -5,23 +5,28 @@ import sys
 from pathlib import Path
 from multiprocessing import Pool as ProcessPool
 
-import pandas as pd
-
 sys.path.append(Path(__file__).resolve().parent.parent.as_posix())  # repo path
 from param import RAW_DATA_PATH, DATASET_PATH
 from label_tools.yolov5.yolov5_helper import *
 
 
 def gather_yolo_data(record_name: str, vehicle_name: str, rgb_camera_name: str, semantic_camera_name: str):
-    yolo_rawdata_df = pd.DataFrame()
+    """Gather YOLO data from RGB and semantic camera images, return as a list of dictionaries."""
     vehicle_rawdata_path = f"{RAW_DATA_PATH}/{record_name}/{vehicle_name}"
     rgb_image_path_list = sorted(glob.glob(f"{vehicle_rawdata_path}/{rgb_camera_name}/*.png"))
     semantic_image_path_list = sorted(glob.glob(f"{vehicle_rawdata_path}/{semantic_camera_name}/*.png"))
-    yolo_rawdata_df['rgb_image_path'] = rgb_image_path_list
-    yolo_rawdata_df['semantic_image_path'] = semantic_image_path_list
-    yolo_rawdata_df['record_name'] = record_name
-    yolo_rawdata_df['vehicle_name'] = vehicle_name
-    return yolo_rawdata_df
+
+    yolo_rawdata_list = []
+    # Assuming rgb and semantic images have the same count and order
+    for rgb_path, semantic_path in zip(rgb_image_path_list, semantic_image_path_list):
+        yolo_rawdata_list.append({
+            'rgb_image_path': rgb_path,
+            'semantic_image_path': semantic_path,
+            'record_name': record_name,
+            'vehicle_name': vehicle_name
+        })
+
+    return yolo_rawdata_list
 
 
 class YoloLabelTool:
@@ -30,16 +35,16 @@ class YoloLabelTool:
         self.color_pixels_min = 30
         self.debug = False
 
-    def process(self, rawdata_df: pd.DataFrame):
+    def process(self, rawdata_list: list):
         start = time.time()
         pool = ProcessPool()
-        pool.starmap(self.process_frame, rawdata_df.iterrows())
+        pool.starmap(self.process_frame, enumerate(rawdata_list))
         pool.close()
         pool.join()
         print("cost: {:0<3f}s".format(time.time() - start))
 
         # start = time.time()
-        # for index, frame in rawdata_df.iterrows():
+        # for index, frame in enumerate(rawdata_list):
         #     self.process_frame(index, frame)
         # print("cost: {:0<3f}s".format(time.time() - start))
 
@@ -65,7 +70,7 @@ class YoloLabelTool:
         height, width, _ = image_rgb.shape
 
         labels_all = []
-        for index, label_info in LABEL_DATAFRAME.iterrows():
+        for label_info in LABEL_LIST:
             seg_color = label_info['color']
             coco_id = label_info['coco_names_index']
 

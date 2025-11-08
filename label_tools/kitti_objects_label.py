@@ -16,21 +16,37 @@ from label_tools.kitti_object.kitti_object_helper import *
 
 
 def gather_rawdata_to_dataframe(record_name: str, vehicle_name: str, lidar_path: str, camera_path: str):
-    rawdata_frames_df = pd.DataFrame()
-    # vehicle_poses_df = load_vehicle_pose("{}/{}/{}".format(RAW_DATA_PATH, record_name, vehicle_name))
-    # rawdata_frames_df = vehicle_poses_df
+    """Gather raw data from different sources and merge them into a list of frame dictionaries."""
+    # Load object labels
+    object_labels_list = load_object_labels("{}/{}/others.world_0".format(RAW_DATA_PATH, record_name))
 
-    object_labels_path_df = load_object_labels("{}/{}/others.world_0".format(RAW_DATA_PATH, record_name))
-    rawdata_frames_df = object_labels_path_df
-    rawdata_frames_df = rawdata_frames_df.reset_index(drop=False)
+    # Load lidar data
+    lidar_rawdata_list = load_lidar_data(f"{RAW_DATA_PATH}/{record_name}/{vehicle_name}/{lidar_path}")
 
-    lidar_rawdata_df = load_lidar_data(f"{RAW_DATA_PATH}/{record_name}/{vehicle_name}/{lidar_path}")
-    rawdata_frames_df = pd.merge(rawdata_frames_df, lidar_rawdata_df, how='outer', on='frame')
+    # Load camera data
+    camera_rawdata_list = load_camera_data(f"{RAW_DATA_PATH}/{record_name}/{vehicle_name}/{camera_path}")
 
-    camera_rawdata_path_df = load_camera_data(f"{RAW_DATA_PATH}/{record_name}/{vehicle_name}/{camera_path}")
-    rawdata_frames_df = pd.merge(rawdata_frames_df, camera_rawdata_path_df, how='outer', on='frame')
+    # Create dictionaries for quick lookup by frame
+    lidar_dict = {item['frame']: item for item in lidar_rawdata_list}
+    camera_dict = {item['frame']: item for item in camera_rawdata_list}
 
-    return rawdata_frames_df
+    # Merge all data based on frame number
+    merged_data = []
+    for obj_label in object_labels_list:
+        frame = obj_label['frame']
+        merged_item = obj_label.copy()
+
+        # Merge lidar data
+        if frame in lidar_dict:
+            merged_item.update(lidar_dict[frame])
+
+        # Merge camera data
+        if frame in camera_dict:
+            merged_item.update(camera_dict[frame])
+
+        merged_data.append(merged_item)
+
+    return merged_data
 
 
 def generate_image_sets(path_to_kitti_object: str):
@@ -48,10 +64,10 @@ def generate_image_sets(path_to_kitti_object: str):
 
 
 class KittiObjectLabelTool:
-    def __init__(self, record_name, vehicle_name, rawdata_df: pd.DataFrame, output_dir=None):
+    def __init__(self, record_name, vehicle_name, rawdata_list: list, output_dir=None):
         self.record_name = record_name
         self.vehicle_name = vehicle_name
-        self.rawdata_df = rawdata_df
+        self.rawdata_list = rawdata_list
         self.range_max = 150.0
         self.range_min = 1.0
         self.points_min = 10
@@ -62,11 +78,11 @@ class KittiObjectLabelTool:
         if not debug:
             start = time.time()
             thread_pool = ThreadPool()
-            thread_pool.starmap(self.process_frame, self.rawdata_df.iterrows())
+            thread_pool.starmap(self.process_frame, enumerate(self.rawdata_list))
             thread_pool.close()
             thread_pool.join()
 
-            if self.output_dir is '':
+            if self.output_dir == '':
                 output_dir = f"{DATASET_PATH}/{self.record_name}/{self.vehicle_name}/kitti_object"
             else:
                 output_dir = f"{DATASET_PATH}/{self.output_dir}/kitti_object"
@@ -74,9 +90,9 @@ class KittiObjectLabelTool:
             print("Cost: {:0<3f}s".format(time.time() - start))
         else:
             start = time.time()
-            for index, frame in self.rawdata_df.iterrows():
+            for index, frame in enumerate(self.rawdata_list):
                 self.process_frame(index, frame)
-            if self.output_dir is '':
+            if self.output_dir == '':
                 output_dir = f"{DATASET_PATH}/{self.record_name}/{self.vehicle_name}/kitti_object"
             else:
                 output_dir = f"{DATASET_PATH}/{self.output_dir}/kitti_object"
@@ -189,7 +205,7 @@ class KittiObjectLabelTool:
         # o3d.visualization.draw_geometries(preview_obj)
 
         # Output dataset in kitti format
-        if self.output_dir is '':
+        if self.output_dir == '':
             output_dir = f"{DATASET_PATH}/{self.record_name}/{self.vehicle_name}/kitti_object/training"
         else:
             output_dir = f"{DATASET_PATH}/{self.output_dir}/kitti_object/training"
@@ -236,12 +252,12 @@ def main():
         vehicle_name_list = [args.vehicle]
 
     for vehicle_name in vehicle_name_list:
-        rawdata_df = gather_rawdata_to_dataframe(args.record,
+        rawdata_list = gather_rawdata_to_dataframe(args.record,
                                                  vehicle_name,
                                                  args.lidar,
                                                  args.camera)
         print("Process {} - {}".format(record_name, vehicle_name))
-        kitti_obj_label_tool = KittiObjectLabelTool(record_name, vehicle_name, rawdata_df, args.output_dir)
+        kitti_obj_label_tool = KittiObjectLabelTool(record_name, vehicle_name, rawdata_list, args.output_dir)
         kitti_obj_label_tool.process()
 
 
