@@ -2,7 +2,7 @@
 
 [![Python](https://img.shields.io/badge/Python-3.8%2B-blue.svg)](https://www.python.org/)
 [![CARLA](https://img.shields.io/badge/CARLA-0.9.16-orange.svg)](https://carla.org/)
-[![License](https://img.shields.io/badge/License-Apache%202.0-green.svg)](LICENSE)
+[![License](https://img.shields.io/badge/License-GPL%203.0-blue.svg)](LICENSE)
 
 > 📦 一套完整的 CARLA 仿真器数据采集与标注工具
 
@@ -61,7 +61,7 @@
 ### 步骤 1：克隆仓库
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/carla_dataset_tools.git
+git clone https://github.com/KevinLADLee/carla_dataset_tools.git
 cd carla_dataset_tools
 ```
 
@@ -521,13 +521,13 @@ carla_dataset_tools/
 
 ## 📄 许可证
 
-本项目采用 Apache License 2.0 许可证 - 详见 [LICENSE](LICENSE) 文件。
+本项目采用 GNU 通用公共许可证 v3.0 - 详见 [LICENSE](LICENSE) 文件。
 
 ---
 
 ## 📮 联系与支持
 
-- **问题反馈**：[GitHub Issues](https://github.com/YOUR_USERNAME/carla_dataset_tools/issues)
+- **问题反馈**：[GitHub Issues](https://github.com/KevinLADLee/carla_dataset_tools/issues)
 - **相关项目**：[CarlaFLCAV](https://github.com/SIAT-INVS/CarlaFLCAV)
 
 ---
@@ -536,6 +536,6 @@ carla_dataset_tools/
 
 **⭐ 如果这个项目对你的研究有帮助，请给我们点个 Star！⭐**
 
-[🏠 主页](https://github.com/YOUR_USERNAME/carla_dataset_tools) • [📖 文档](#) • [🐛 报告 Bug](https://github.com/YOUR_USERNAME/carla_dataset_tools/issues) • [💡 功能建议](https://github.com/YOUR_USERNAME/carla_dataset_tools/issues)
+[🏠 主页](https://github.com/KevinLADLee/carla_dataset_tools) • [📖 文档](#) • [🐛 报告 Bug](https://github.com/KevinLADLee/carla_dataset_tools/issues) • [💡 功能建议](https://github.com/KevinLADLee/carla_dataset_tools/issues)
 
 </div>

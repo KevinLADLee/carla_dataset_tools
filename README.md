@@ -2,7 +2,7 @@
 
 [![Python](https://img.shields.io/badge/Python-3.8%2B-blue.svg)](https://www.python.org/)
 [![CARLA](https://img.shields.io/badge/CARLA-0.9.16-orange.svg)](https://carla.org/)
-[![License](https://img.shields.io/badge/License-Apache%202.0-green.svg)](LICENSE)
+[![License](https://img.shields.io/badge/License-GPL%203.0-blue.svg)](LICENSE)
 
 > 📦 A comprehensive data collection and labeling toolkit for CARLA Simulator
 
@@ -61,7 +61,7 @@ Before you begin, ensure you have the following:
 ### Step 1: Clone the Repository
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/carla_dataset_tools.git
+git clone https://github.com/KevinLADLee/carla_dataset_tools.git
 cd carla_dataset_tools
 ```
 
@@ -520,13 +520,13 @@ This project builds upon the following excellent works:
 
 ## 📄 License
 
-This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the GNU General Public License v3.0 - see the [LICENSE](LICENSE) file for details.
 
 ---
 
 ## 📮 Contact & Support
 
-- **Issues**: [GitHub Issues](https://github.com/YOUR_USERNAME/carla_dataset_tools/issues)
+- **Issues**: [GitHub Issues](https://github.com/KevinLADLee/carla_dataset_tools/issues)
 - **Project**: [CarlaFLCAV](https://github.com/SIAT-INVS/CarlaFLCAV)
 
 ---
@@ -535,6 +535,6 @@ This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENS
 
 **⭐ If this project helps your research, please give us a star! ⭐**
 
-[🏠 Home](https://github.com/YOUR_USERNAME/carla_dataset_tools) • [📖 Documentation](#) • [🐛 Report Bug](https://github.com/YOUR_USERNAME/carla_dataset_tools/issues) • [💡 Request Feature](https://github.com/YOUR_USERNAME/carla_dataset_tools/issues)
+[🏠 Home](https://github.com/KevinLADLee/carla_dataset_tools) • [📖 Documentation](#) • [🐛 Report Bug](https://github.com/KevinLADLee/carla_dataset_tools/issues) • [💡 Request Feature](https://github.com/KevinLADLee/carla_dataset_tools/issues)
 
 </div>
