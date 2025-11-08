@@ -27,6 +27,33 @@ class ConfigManager:
         'sensor.other.radar',
     }
 
+    # Available maps in CARLA 0.9.16
+    VALID_MAPS = {
+        'AnnotationColorLandscape',
+        'Town01', 'Town01_Opt',
+        'Town02', 'Town02_Opt',
+        'Town03', 'Town03_Opt',
+        'Town04', 'Town04_Opt',
+        'Town05', 'Town05_Opt',
+        'Town06', 'Town06_Opt',
+        'Town07', 'Town07_Opt',
+        'Town10HD', 'Town10HD_Opt',
+        'Town11', 'Town12', 'Town13', 'Town15',
+    }
+
+    # Available weather presets in CARLA 0.9.16
+    VALID_WEATHER_PRESETS = {
+        'Default',
+        'ClearNoon', 'ClearSunset', 'ClearNight',
+        'CloudyNoon', 'CloudySunset', 'CloudyNight',
+        'WetNoon', 'WetSunset', 'WetNight',
+        'WetCloudyNoon', 'WetCloudySunset', 'WetCloudyNight',
+        'SoftRainNoon', 'SoftRainSunset', 'SoftRainNight',
+        'MidRainyNoon', 'MidRainSunset', 'MidRainyNight',
+        'HardRainNoon', 'HardRainSunset', 'HardRainNight',
+        'DustStorm',
+    }
+
     # Required configuration keys
     REQUIRED_KEYS = {
         'recording': ['frame_total', 'frame_step', 'map'],
@@ -35,6 +62,9 @@ class ConfigManager:
         'traffic_lights': ['red_time', 'green_time', 'yellow_time'],
         'actors': [],  # List, will be validated separately
     }
+
+    # Maximum config file size (10MB for security)
+    MAX_CONFIG_SIZE = 10 * 1024 * 1024
 
     def __init__(self, config_root: Optional[str] = None):
         """
@@ -90,6 +120,14 @@ class ConfigManager:
             raise FileNotFoundError(
                 f"Configuration file not found: {config_path}\n"
                 f"Available profiles: {self.list_profiles()}"
+            )
+
+        # Security: Check file size to prevent DoS attacks
+        file_size = os.path.getsize(config_path)
+        if file_size > self.MAX_CONFIG_SIZE:
+            raise ConfigValidationError(
+                f"Configuration file too large: {file_size} bytes "
+                f"(max: {self.MAX_CONFIG_SIZE} bytes / {self.MAX_CONFIG_SIZE // 1024 // 1024}MB)"
             )
 
         try:
@@ -180,11 +218,27 @@ class ConfigManager:
                 f"frame_step must be > 0 in {config_path}"
             )
 
-        # Map name is a string, just check it exists
-        if not recording['map']:
+        # Validate map name
+        map_name = recording['map']
+        if not map_name:
             raise ConfigValidationError(
                 f"map name cannot be empty in {config_path}"
             )
+
+        if map_name not in self.VALID_MAPS:
+            raise ConfigValidationError(
+                f"Invalid map '{map_name}' in {config_path}.\n"
+                f"Available maps: {sorted(self.VALID_MAPS)}"
+            )
+
+        # Validate weather preset if specified
+        if 'weather' in recording and recording['weather'] is not None:
+            weather = recording['weather']
+            if weather not in self.VALID_WEATHER_PRESETS:
+                raise ConfigValidationError(
+                    f"Invalid weather preset '{weather}' in {config_path}.\n"
+                    f"Available presets: {sorted(self.VALID_WEATHER_PRESETS)}"
+                )
 
     def _validate_world_settings(self, world_settings: Dict[str, Any], config_path: str):
         """Validate world_settings section according to CARLA 0.9.16 API"""

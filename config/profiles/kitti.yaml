@@ -9,6 +9,7 @@ recording:
   frame_total: 12000        # Total frames to record - 总帧数
   frame_step: 3             # Save every 3rd frame - 每3帧保存
   map: Town02               # CARLA map
+  weather: ClearNoon        # Weather preset (optional): ClearNoon, CloudyNoon, WetNoon, HardRainNoon, etc.
 
 # ============================================================================
 # Spectator Camera Position - 观察者相机位置

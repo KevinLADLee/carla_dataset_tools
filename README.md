@@ -227,6 +227,7 @@ recording:
   frame_total: 12000        # Total frames to record
   frame_step: 3             # Save every N frames
   map: Town02               # CARLA map name
+  weather: ClearNoon        # Weather preset (optional)
 
 # Spectator camera position
 spectator:
@@ -318,7 +319,55 @@ python3 utils/convert_json_to_yaml.py old_config.json -o new_config.yaml
 
 ### 📂 Available Maps
 
-Town01, Town02, Town03, Town04, Town05, Town06, Town07, Town10HD
+CARLA 0.9.16 includes the following maps:
+
+**Town Maps:**
+- `Town01`, `Town01_Opt` - Simple town with basic road network
+- `Town02`, `Town02_Opt` - Small town with various intersections
+- `Town03`, `Town03_Opt` - Larger urban area with roundabout
+- `Town04`, `Town04_Opt` - Small town with highway
+- `Town05`, `Town05_Opt` - Urban area with bridge and tunnel
+- `Town06`, `Town06_Opt` - Urban area with multiple lane highway
+- `Town07`, `Town07_Opt` - Rural environment with narrow roads
+- `Town10HD`, `Town10HD_Opt` - High-definition urban area
+- `Town11`, `Town12`, `Town13`, `Town15` - Additional urban variations
+
+**Special Maps:**
+- `AnnotationColorLandscape` - Testing environment
+
+**Note:** `_Opt` versions have optimized geometry for better performance.
+
+### 🌤️ Weather Presets
+
+Control environmental conditions with weather presets:
+
+**Clear Weather:**
+- `ClearNoon`, `ClearSunset`, `ClearNight` - Clear sky conditions
+
+**Cloudy Weather:**
+- `CloudyNoon`, `CloudySunset`, `CloudyNight` - Overcast conditions
+
+**Wet Weather:**
+- `WetNoon`, `WetSunset`, `WetNight` - Wet roads, no rain
+- `WetCloudyNoon`, `WetCloudySunset`, `WetCloudyNight` - Wet and cloudy
+
+**Rainy Weather:**
+- `SoftRainNoon`, `SoftRainSunset`, `SoftRainNight` - Light rain
+- `MidRainyNoon`, `MidRainSunset`, `MidRainyNight` - Moderate rain
+- `HardRainNoon`, `HardRainSunset`, `HardRainNight` - Heavy rain
+
+**Extreme Weather:**
+- `DustStorm` - Desert dust storm conditions
+
+**Default:**
+- `Default` - CARLA's default weather
+
+**Example usage in config:**
+```yaml
+recording:
+  map: Town03
+  weather: HardRainNoon  # Heavy rain at noon
+```
 
 ### 📷 Supported Sensor Types
 

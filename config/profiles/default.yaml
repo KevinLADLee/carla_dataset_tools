@@ -9,6 +9,7 @@ recording:
   frame_total: 12000        # Total number of frames to record - 总录制帧数
   frame_step: 3             # Save data every N frames - 每N帧保存一次数据
   map: Town02               # CARLA map name (Town01-Town07, Town10HD) - 地图名称
+  weather: ClearNoon        # Weather preset (optional): ClearNoon, CloudyNoon, WetNoon, HardRainNoon, etc.
 
 # ============================================================================
 # Spectator Camera Position - 观察者相机位置

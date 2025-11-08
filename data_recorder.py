@@ -70,6 +70,17 @@ class DataRecorder:
         print("World settings:", settings)
         self.world.apply_settings(settings)
 
+        # Set weather if specified
+        if 'weather' in config['recording'] and config['recording']['weather']:
+            weather_preset = config['recording']['weather']
+            print(f"Setting weather to: {weather_preset}")
+            try:
+                weather = getattr(carla.WeatherParameters, weather_preset)
+                self.world.set_weather(weather)
+                print(f"✓ Weather set to {weather_preset}")
+            except AttributeError:
+                print(f"⚠ Warning: Weather preset '{weather_preset}' not found, using default")
+
         # Set spectator position if specified
         if 'spectator' in config and config['spectator'] is not None:
             pose = config['spectator']
