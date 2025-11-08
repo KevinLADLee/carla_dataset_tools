@@ -3,6 +3,6 @@ carla >= 0.9.16
 numpy<2.0,>=1.24.4
 transforms3d~=0.4.2
 open3d
-pandas
+pandas<2.0
 shapely
 networkx
