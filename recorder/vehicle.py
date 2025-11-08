@@ -48,15 +48,77 @@ class Vehicle(Actor):
                  uid,
                  name: str,
                  base_save_dir: str,
-                 carla_actor: carla.Vehicle):
+                 carla_actor: carla.Vehicle,
+                 route_config=None):
         super().__init__(uid=uid, name=name, parent=None, carla_actor=carla_actor)
         self.vehicle_type = copy.deepcopy(carla_actor.type_id)
         self.save_dir = '{}/{}'.format(base_save_dir, self.name)
         self.first_tick = True
+
+        # Route configuration
+        self.route_config = route_config
+
         # For vehicle control
-        self.use_auto_pilot = True
-        self.vehicle_agent = BasicAgent(self.carla_actor)
+        if self.route_config is None:
+            # No route specified, use default autopilot
+            self.use_auto_pilot = True
+            self.vehicle_agent = BasicAgent(self.carla_actor)
+        else:
+            # Route specified, setup agent for route following
+            self.use_auto_pilot = False
+            self._setup_route()
+
         # self.vehicle_agent = BehaviorAgent(self.carla_actor)
+
+    def _setup_route(self):
+        """Setup vehicle agent to follow configured route"""
+        if self.route_config is None:
+            return
+
+        mode = self.route_config.get('mode', 'strict')
+        waypoints = self.route_config.get('waypoints', [])
+
+        if mode == 'strict' and len(waypoints) >= 2:
+            # Create BasicAgent for waypoint following
+            self.vehicle_agent = BasicAgent(self.carla_actor)
+
+            # Convert waypoint dicts to carla.Waypoint objects
+            world = self.carla_actor.get_world()
+            carla_map = world.get_map()
+
+            # Build global plan from waypoints
+            plan = []
+            for wp_dict in waypoints:
+                location = carla.Location(
+                    x=float(wp_dict['x']),
+                    y=float(wp_dict['y']),
+                    z=float(wp_dict['z'])
+                )
+                # Get the nearest waypoint on the road
+                waypoint = carla_map.get_waypoint(
+                    location,
+                    project_to_road=True,
+                    lane_type=carla.LaneType.Driving
+                )
+                if waypoint:
+                    from recorder.agents.navigation.local_planner import RoadOption
+                    plan.append((waypoint, RoadOption.LANEFOLLOW))
+
+            # Set the global plan for the agent
+            if len(plan) >= 2:
+                self.vehicle_agent.set_global_plan(plan, clean_queue=True)
+                print(f"Vehicle '{self.name}' configured with route: {len(plan)} waypoints")
+            else:
+                print(f"Warning: Vehicle '{self.name}' route has insufficient valid waypoints. Using autopilot.")
+                self.use_auto_pilot = True
+        elif mode == 'disabled':
+            # Explicitly disabled route, use autopilot
+            self.use_auto_pilot = True
+            self.vehicle_agent = BasicAgent(self.carla_actor)
+        else:
+            print(f"Warning: Unknown route mode '{mode}' for vehicle '{self.name}'. Using autopilot.")
+            self.use_auto_pilot = True
+            self.vehicle_agent = BasicAgent(self.carla_actor)
 
     def get_save_dir(self):
         return self.save_dir
@@ -127,14 +189,11 @@ class Vehicle(Actor):
         pass
 
     def control_step(self):
-        # TODO: Migration with agents.behavior_agent
-        if self.use_auto_pilot:
-            self.carla_actor.set_autopilot()
+        """Execute one control step for the vehicle"""
+        if self.route_config is not None and not self.use_auto_pilot:
+            # Using agent-based route following
+            control = self.vehicle_agent.run_step()
+            self.carla_actor.apply_control(control)
         else:
-            self.carla_actor.apply_control(self.vehicle_agent.run_step())
-
-        # if not self.auto_pilot:
-        #     self.carla_actor.set_autopilot()
-        #     self.auto_pilot = True
-        # else:
-        #     return
+            # Using default autopilot
+            self.carla_actor.set_autopilot()

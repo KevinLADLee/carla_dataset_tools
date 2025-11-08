@@ -1,0 +1,15 @@
+# Example Route for Town02
+# This file demonstrates the format for route files
+# Generated with route_editor.py or manually created
+
+map: Town02
+waypoints:
+  - {x: 107.5, y: -133.2, z: 0.3}
+  - {x: 150.0, y: -130.5, z: 0.3}
+  - {x: 200.3, y: -128.8, z: 0.3}
+  - {x: 250.0, y: -127.0, z: 0.3}
+mode: strict
+metadata:
+  waypoint_count: 4
+  description: "Example route along main street"
+  created_with: "manual"

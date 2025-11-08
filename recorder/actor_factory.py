@@ -3,6 +3,8 @@ import os
 import random
 import warnings
 from enum import Enum
+from pathlib import Path
+import yaml
 
 import carla
 
@@ -167,10 +169,17 @@ class ActorFactory(object):
         blueprint = self.blueprint_lib.find(vehicle_type)
         carla_actor = self.world.spawn_actor(blueprint, transform)
         print(vehicle_name)
+
+        # Parse route configuration if present
+        route_config = None
+        if "route" in actor_info:
+            route_config = self._parse_route_config(actor_info["route"])
+
         vehicle_object = Vehicle(uid=self.generate_uid(),
                                  name=vehicle_name,
                                  base_save_dir=self.base_save_dir,
-                                 carla_actor=carla_actor)
+                                 carla_actor=carla_actor,
+                                 route_config=route_config)
         vehicle_node = Node(vehicle_object, NodeType.VEHICLE)
         return vehicle_node
 
@@ -251,6 +260,47 @@ class ActorFactory(object):
                                                transform=transform)
         infrastructure_node = Node(infrastructure_object, NodeType.INFRASTRUCTURE)
         return infrastructure_node
+
+    def _parse_route_config(self, route_info):
+        """
+        Parse route configuration from actor info
+
+        Args:
+            route_info: Route configuration dictionary
+
+        Returns:
+            Parsed route configuration dictionary
+        """
+        route_config = {}
+
+        # Check if loading from file
+        if "from_file" in route_info:
+            route_file = Path(route_info["from_file"])
+            # If relative path, make it relative to project root
+            if not route_file.is_absolute():
+                route_file = Path(ROOT_PATH) / route_file
+
+            try:
+                with open(route_file, 'r', encoding='utf-8') as f:
+                    route_data = yaml.safe_load(f)
+                    # Use waypoints and mode from file
+                    route_config['waypoints'] = route_data.get('waypoints', [])
+                    route_config['mode'] = route_data.get('mode', 'strict')
+                    print(f"Loaded route from file: {route_file} ({len(route_config['waypoints'])} waypoints)")
+            except Exception as e:
+                warnings.warn(f"Failed to load route from {route_file}: {e}")
+                return None
+        else:
+            # Use directly specified waypoints
+            route_config['waypoints'] = route_info.get('waypoints', [])
+            route_config['mode'] = route_info.get('mode', 'strict')
+
+        # Validate minimum requirements
+        if len(route_config.get('waypoints', [])) < 2:
+            warnings.warn("Route must have at least 2 waypoints. Ignoring route.")
+            return None
+
+        return route_config
 
     def create_sensor_node(self, sensor_info: dict, parent_actor: PseudoActor, sensor_name_set: set):
         sensor_type = str(sensor_info.pop("type"))

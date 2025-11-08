@@ -287,9 +287,89 @@ class ConfigManager:
                     f"Actor {i} missing 'spawn_point' in {config_path}"
                 )
 
+            # Validate route if present
+            if 'route' in actor:
+                self._validate_route(actor['route'], i, config_path)
+
             # Validate sensors if present
             if 'sensors' in actor:
                 self._validate_sensors(actor['sensors'], i, config_path)
+
+    def _validate_route(self, route: Dict[str, Any], actor_index: int, config_path: str):
+        """Validate route configuration for an actor"""
+        if not isinstance(route, dict):
+            raise ConfigValidationError(
+                f"Actor {actor_index} route must be a dictionary in {config_path}"
+            )
+
+        # Check if loading from file
+        if 'from_file' in route:
+            route_file = Path(route['from_file'])
+            # If relative path, make it relative to project root
+            if not route_file.is_absolute():
+                route_file = self.config_root.parent / route_file
+
+            if not route_file.exists():
+                raise ConfigValidationError(
+                    f"Actor {actor_index} route file not found: {route['from_file']} in {config_path}"
+                )
+
+            # Load and validate the route file
+            try:
+                with open(route_file, 'r', encoding='utf-8') as f:
+                    route_data = yaml.safe_load(f)
+                    if 'waypoints' in route_data:
+                        self._validate_waypoints(route_data['waypoints'], actor_index, config_path)
+            except Exception as e:
+                raise ConfigValidationError(
+                    f"Actor {actor_index} failed to load route from {route['from_file']}: {e}"
+                )
+
+        # Validate mode if specified
+        if 'mode' in route:
+            valid_modes = {'strict', 'disabled'}
+            if route['mode'] not in valid_modes:
+                raise ConfigValidationError(
+                    f"Actor {actor_index} route mode must be one of {valid_modes}, "
+                    f"got '{route['mode']}' in {config_path}"
+                )
+
+        # Validate waypoints if present
+        if 'waypoints' in route:
+            self._validate_waypoints(route['waypoints'], actor_index, config_path)
+
+    def _validate_waypoints(self, waypoints: list, actor_index: int, config_path: str):
+        """Validate waypoints list"""
+        if not isinstance(waypoints, list):
+            raise ConfigValidationError(
+                f"Actor {actor_index} route waypoints must be a list in {config_path}"
+            )
+
+        if len(waypoints) < 2:
+            raise ConfigValidationError(
+                f"Actor {actor_index} route must have at least 2 waypoints in {config_path}"
+            )
+
+        for i, wp in enumerate(waypoints):
+            if not isinstance(wp, dict):
+                raise ConfigValidationError(
+                    f"Actor {actor_index} waypoint {i} must be a dictionary in {config_path}"
+                )
+
+            # Check required fields
+            required_fields = {'x', 'y', 'z'}
+            missing_fields = required_fields - set(wp.keys())
+            if missing_fields:
+                raise ConfigValidationError(
+                    f"Actor {actor_index} waypoint {i} missing fields {missing_fields} in {config_path}"
+                )
+
+            # Validate that coordinates are numbers
+            for field in required_fields:
+                if not isinstance(wp[field], (int, float)):
+                    raise ConfigValidationError(
+                        f"Actor {actor_index} waypoint {i} field '{field}' must be a number in {config_path}"
+                    )
 
     def _validate_sensors(self, sensors: list, actor_index: int, config_path: str):
         """Validate sensor configurations"""

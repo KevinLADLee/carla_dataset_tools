@@ -1,0 +1,137 @@
+# CARLA Dataset Recording Configuration - Route Following Example
+# This profile demonstrates how to configure vehicles to follow predefined routes
+
+# ============================================================================
+# Recording Settings
+# ============================================================================
+recording:
+  frame_total: 6000         # Total frames to record
+  frame_step: 3             # Save every 3rd frame
+  map: Town02               # CARLA map
+  weather: ClearNoon        # Weather preset
+
+# ============================================================================
+# Spectator Camera Position
+# ============================================================================
+spectator:
+  x: 100.0
+  y: -150.0
+  z: 150.0
+  roll: 0.0
+  pitch: 60.0
+  yaw: -90.0
+
+# ============================================================================
+# World Physics Settings
+# ============================================================================
+world_settings:
+  synchronous_mode: true
+  fixed_delta_seconds: 0.1
+  substepping: true
+  max_substep_delta_time: 0.01
+  max_substeps: 16
+
+# ============================================================================
+# Traffic Light Settings
+# ============================================================================
+traffic_lights:
+  red_time: 2.0
+  green_time: 2.0
+  yellow_time: 0.01
+
+# ============================================================================
+# Sensor Templates
+# ============================================================================
+sensor_templates:
+  # RGB Camera
+  rgb_camera: &rgb_camera
+    type: sensor.camera.rgb
+    image_size_x: 800
+    image_size_y: 600
+    fov: 90.0
+
+  # LiDAR
+  lidar_sensor: &lidar_sensor
+    type: sensor.lidar.ray_cast
+    range: 100
+    channels: 32
+    points_per_second: 560000
+    upper_fov: 10.0
+    lower_fov: -30.0
+    rotation_frequency: 10
+
+# ============================================================================
+# Actors with Route Configuration Examples
+# ============================================================================
+actors:
+  # Example 1: Vehicle with inline route waypoints
+  - type: vehicle.tesla.model3
+    name: vehicle_1st
+    spawn_point: 73
+    route:
+      mode: strict                        # Strict route following
+      waypoints:                          # Inline waypoints
+        - {x: 107.5, y: -133.2, z: 0.3}
+        - {x: 150.0, y: -130.5, z: 0.3}
+        - {x: 200.3, y: -128.8, z: 0.3}
+    sensors:
+      - <<: *rgb_camera
+        name: image_2
+        spawn_point: {x: 2.0, y: 0.0, z: 2.0, roll: 0.0, pitch: 0.0, yaw: 0.0}
+      - <<: *lidar_sensor
+        name: velodyne
+        spawn_point: {x: 0.0, y: 0.0, z: 2.4, roll: 0.0, pitch: 0.0, yaw: 0.0}
+
+  # Example 2: Vehicle loading route from file
+  # Uncomment and adjust the from_file path to use this
+  # - type: vehicle.audi.a2
+  #   name: vehicle_2nd
+  #   spawn_point: 76
+  #   route:
+  #     from_file: routes/Town02_example_route.yaml  # Load route from file
+  #   sensors:
+  #     - <<: *rgb_camera
+  #       name: image_2
+  #       spawn_point: {x: 2.0, y: 0.0, z: 2.0, roll: 0.0, pitch: 0.0, yaw: 0.0}
+
+  # Example 3: Vehicle without route (uses default autopilot)
+  - type: vehicle.dodge.charger_police
+    name: vehicle_autopilot
+    spawn_point: 80
+    # No route specified - uses default CARLA autopilot
+    sensors:
+      - <<: *rgb_camera
+        name: image_2
+        spawn_point: {x: 2.0, y: 0.0, z: 2.0, roll: 0.0, pitch: 0.0, yaw: 0.0}
+
+# ============================================================================
+# Background Traffic
+# ============================================================================
+other_vehicles:
+  count: 10                    # Random background vehicles
+  spawn_points: []             # Can specify spawn points here
+
+# ============================================================================
+# Usage Instructions
+# ============================================================================
+#
+# To create custom routes:
+#   1. Start CARLA server:
+#      cd $CARLA_ROOT && ./CarlaUE4.sh
+#
+#   2. Use the route editor:
+#      python3 utils/route_editor.py --map Town02 --name my_route
+#
+#   3. Click on the map to select waypoints, press Enter to save
+#
+#   4. Use the generated route in this config:
+#      - Inline: Copy waypoints from terminal output
+#      - From file: Use from_file: routes/Town02_my_route.yaml
+#
+# Route modes:
+#   - strict: Vehicle strictly follows the waypoint sequence
+#   - disabled: Ignore route, use autopilot (same as no route)
+#
+# To run recording with this profile:
+#   python3 data_recorder.py --profile route_example
+#
