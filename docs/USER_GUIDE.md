@@ -272,7 +272,7 @@ expanded to 453 road waypoints following topology (LOOP)
 cd $CARLA_ROOT && ./CarlaUE4.sh
 
 # 2. Create route (in another terminal)
-python3 utils/route_editor.py --map Town02 --name downtown_loop
+python3 tools/editor_route.py --map Town02 --name downtown_loop
 
 # 3. Click waypoints on the map
 # 4. Press Enter to save
@@ -420,6 +420,59 @@ Output includes:
 ---
 
 ## Visualization
+
+### Visualize Actor Tree (Pre-Recording)
+
+Before recording, you can visualize your configuration to verify the actor hierarchy is correct:
+
+```bash
+# Visualize default profile
+python3 tools/viz_actor_tree.py default
+
+# Visualize custom configuration
+python3 tools/viz_actor_tree.py my_config.yaml
+
+# Generate SVG format
+python3 tools/viz_actor_tree.py simple --format svg --output my_tree
+
+# Generate PDF format
+python3 tools/viz_actor_tree.py argoverse --format pdf
+
+# Auto-open after generation
+python3 tools/viz_actor_tree.py default --view
+
+# List available profiles
+python3 tools/viz_actor_tree.py --list
+```
+
+**Features:**
+- **No CARLA Required**: Visualizes directly from configuration file
+- **Complete Information**: Shows vehicles, sensors, spawn points, sensor parameters, routes
+- **Color Coding**: Different colors for different node types (vehicles, sensors, infrastructure)
+- **Multiple Formats**: PNG (default), SVG, PDF
+- **Statistics Summary**: Total actors, sensors, background vehicles
+
+**Output:**
+The tool generates a graphical tree showing:
+- Configuration summary (map, frames, delta time)
+- World node with all actors
+- Each vehicle/infrastructure with its sensors
+- Sensor parameters (resolution, FOV, range, etc.)
+- Spawn points and coordinates
+- Route information (waypoint count, mode)
+
+**Dependencies:**
+```bash
+# Install required package
+pip install graphviz
+
+# Install system graphviz (if needed)
+# Ubuntu/Debian:
+sudo apt-get install graphviz
+
+# macOS:
+brew install graphviz
+```
 
 ### Visualize Point Cloud
 

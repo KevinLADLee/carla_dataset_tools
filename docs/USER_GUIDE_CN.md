@@ -272,7 +272,7 @@ expanded to 453 road waypoints following topology (LOOP)
 cd $CARLA_ROOT && ./CarlaUE4.sh
 
 # 2. 创建路线(在另一个终端中)
-python3 utils/route_editor.py --map Town02 --name downtown_loop
+python3 tools/editor_route.py --map Town02 --name downtown_loop
 
 # 3. 在地图上点击路径点
 # 4. 按 Enter 保存
@@ -420,6 +420,59 @@ python3 label_tools/yolo_label.py -r <record_name>
 ---
 
 ## 可视化
+
+### 可视化Actor树（录制前）
+
+在录制之前，您可以可视化配置文件来验证actor层次结构是否正确：
+
+```bash
+# 可视化默认配置
+python3 tools/viz_actor_tree.py default
+
+# 可视化自定义配置
+python3 tools/viz_actor_tree.py my_config.yaml
+
+# 生成SVG格式
+python3 tools/viz_actor_tree.py simple --format svg --output my_tree
+
+# 生成PDF格式
+python3 tools/viz_actor_tree.py argoverse --format pdf
+
+# 生成后自动打开
+python3 tools/viz_actor_tree.py default --view
+
+# 列出可用的配置文件
+python3 tools/viz_actor_tree.py --list
+```
+
+**功能特性:**
+- **无需CARLA**: 直接从配置文件可视化，无需启动CARLA
+- **完整信息**: 显示车辆、传感器、生成点、传感器参数、路径
+- **颜色编码**: 不同类型的节点使用不同颜色（车辆、传感器、基础设施）
+- **多种格式**: PNG（默认）、SVG、PDF
+- **统计摘要**: 显示总actor数、传感器数、背景车辆数
+
+**输出内容:**
+该工具生成图形化树形结构，显示：
+- 配置摘要（地图、帧数、时间步长）
+- World节点及所有actors
+- 每个车辆/基础设施及其传感器
+- 传感器参数（分辨率、FOV、范围等）
+- 生成点和坐标
+- 路径信息（waypoint数量、模式）
+
+**依赖项:**
+```bash
+# 安装所需包
+pip install graphviz
+
+# 安装系统graphviz（如果需要）
+# Ubuntu/Debian:
+sudo apt-get install graphviz
+
+# macOS:
+brew install graphviz
+```
 
 ### 可视化点云
 

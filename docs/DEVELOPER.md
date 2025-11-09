@@ -55,6 +55,7 @@ carla_dataset_tools/
 ├── tools/                       # CLI utility scripts
 │   ├── viz_lidar.py             # Point cloud visualization
 │   ├── viz_map.py               # Map visualization
+│   ├── viz_actor_tree.py        # Actor tree visualization (pre-recording)
 │   ├── editor_route.py          # Interactive route creation tool
 │   ├── data_generate_imageset.py # Dataset file list generation
 │   ├── config_convert.py        # JSON to YAML converter
@@ -553,7 +554,7 @@ Configure vehicles to follow specific paths for reproducible data collection:
 cd $CARLA_ROOT && ./CarlaUE4.sh
 
 # Create route using interactive editor
-python3 utils/route_editor.py --map Town02 --name highway_loop
+python3 tools/editor_route.py --map Town02 --name highway_loop
 
 # Click waypoints on the map following your desired path
 # Press Enter to save

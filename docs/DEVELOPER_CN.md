@@ -55,6 +55,7 @@ carla_dataset_tools/
 ├── tools/                       # CLI 工具脚本
 │   ├── viz_lidar.py             # 点云可视化
 │   ├── viz_map.py               # 地图可视化
+│   ├── viz_actor_tree.py        # Actor树可视化（录制前）
 │   ├── editor_route.py          # 交互式路线创建工具
 │   ├── data_generate_imageset.py # 数据集文件列表生成
 │   ├── config_convert.py        # JSON 到 YAML 转换器
@@ -553,7 +554,7 @@ actors:
 cd $CARLA_ROOT && ./CarlaUE4.sh
 
 # 使用交互式编辑器创建路线
-python3 utils/route_editor.py --map Town02 --name highway_loop
+python3 tools/editor_route.py --map Town02 --name highway_loop
 
 # 在地图上点击路径点,沿着您想要的路径
 # 按 Enter 保存
