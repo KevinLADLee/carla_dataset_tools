@@ -67,13 +67,17 @@ actors:
   # Example 1: Vehicle with inline route waypoints
   - type: vehicle.tesla.model3
     name: vehicle_1st
-    spawn_point: 73
+    spawn_point: 63
     route:
       mode: strict                        # Strict route following
       waypoints:                          # Inline waypoints
-        - {x: 107.5, y: -133.2, z: 0.3}
-        - {x: 150.0, y: -130.5, z: 0.3}
-        - {x: 200.3, y: -128.8, z: 0.3}
+        - {x: 63.25, y: 191.58, z: 0.00}
+        - {x: 166.81, y: 191.63, z: 0.00}
+        - {x: 189.69, y: 209.25, z: 0.00}
+        - {x: 173.40, y: 236.95, z: 0.00}
+        - {x: 71.62, y: 236.89, z: 0.00}
+        - {x: 45.85, y: 215.77, z: 0.00}
+        - {x: 68.27, y: 191.58, z: 0.00}
     sensors:
       - <<: *rgb_camera
         name: image_2

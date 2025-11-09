@@ -77,40 +77,68 @@ class Vehicle(Actor):
 
         mode = self.route_config.get('mode', 'strict')
         waypoints = self.route_config.get('waypoints', [])
+        is_loop = self.route_config.get('loop', False)  # Check if it's a loop route
 
         if mode == 'strict' and len(waypoints) >= 2:
             # Create BasicAgent for waypoint following
             self.vehicle_agent = BasicAgent(self.carla_actor)
 
-            # Convert waypoint dicts to carla.Waypoint objects
+            # Convert waypoint dicts to carla.Location objects
             world = self.carla_actor.get_world()
             carla_map = world.get_map()
 
-            # Build global plan from waypoints
-            plan = []
-            for wp_dict in waypoints:
-                location = carla.Location(
-                    x=float(wp_dict['x']),
-                    y=float(wp_dict['y']),
-                    z=float(wp_dict['z'])
+            # Build complete route through all waypoints using GlobalRoutePlanner
+            from recorder.agents.navigation.global_route_planner import GlobalRoutePlanner
+
+            # Create route planner with 2.0m sampling resolution
+            grp = GlobalRoutePlanner(carla_map, 2.0)
+
+            # Build complete plan by connecting waypoints with road topology
+            complete_plan = []
+
+            # Determine number of segments
+            num_segments = len(waypoints) - 1
+            if is_loop:
+                num_segments = len(waypoints)  # Include segment from last back to first
+
+            for i in range(num_segments):
+                # Current waypoint
+                start_loc = carla.Location(
+                    x=float(waypoints[i]['x']),
+                    y=float(waypoints[i]['y']),
+                    z=float(waypoints[i]['z'])
                 )
-                # Get the nearest waypoint on the road
-                waypoint = carla_map.get_waypoint(
-                    location,
-                    project_to_road=True,
-                    lane_type=carla.LaneType.Driving
+
+                # Next waypoint (wrap around for loop routes)
+                next_idx = (i + 1) % len(waypoints)
+                end_loc = carla.Location(
+                    x=float(waypoints[next_idx]['x']),
+                    y=float(waypoints[next_idx]['y']),
+                    z=float(waypoints[next_idx]['z'])
                 )
-                if waypoint:
-                    from recorder.agents.navigation.local_planner import RoadOption
-                    plan.append((waypoint, RoadOption.LANEFOLLOW))
+
+                # Use GlobalRoutePlanner to find the route between waypoints
+                # This respects road topology, lanes, and intersections
+                segment_route = grp.trace_route(start_loc, end_loc)
+
+                # Add segment to complete plan
+                if i == 0:
+                    # First segment: add all waypoints
+                    complete_plan.extend(segment_route)
+                else:
+                    # Subsequent segments: skip first waypoint to avoid duplicates
+                    complete_plan.extend(segment_route[1:])
 
             # Set the global plan for the agent
-            if len(plan) >= 2:
-                self.vehicle_agent.set_global_plan(plan, clean_queue=True)
-                print(f"Vehicle '{self.name}' configured with route: {len(plan)} waypoints")
+            if len(complete_plan) >= 2:
+                self.vehicle_agent.set_global_plan(complete_plan, clean_queue=True)
+                loop_info = " (LOOP)" if is_loop else ""
+                print(f"Vehicle '{self.name}' configured with route: {len(waypoints)} waypoints "
+                      f"expanded to {len(complete_plan)} road waypoints following topology{loop_info}")
             else:
-                print(f"Warning: Vehicle '{self.name}' route has insufficient valid waypoints. Using autopilot.")
+                print(f"Warning: Vehicle '{self.name}' route planning failed. Using autopilot.")
                 self.use_auto_pilot = True
+
         elif mode == 'disabled':
             # Explicitly disabled route, use autopilot
             self.use_auto_pilot = True
