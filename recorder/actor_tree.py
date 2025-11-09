@@ -17,6 +17,9 @@ class ActorTree(object):
         self.actor_factory = ActorFactory(self.world, base_save_dir)
         self.root = Node(None)
         self.node_list = []
+        # Create persistent thread pool for data saving (reused across frames)
+        # Using 4 workers for parallel sensor data saving
+        self.thread_pool = ThreadPool(processes=4)
 
     def init(self):
         self.root = self.actor_factory.create_actor_tree(self.config)
@@ -27,6 +30,15 @@ class ActorTree(object):
                 self.node_list.append(sensor_node)
 
     def destroy(self):
+        """Cleanup resources including thread pool and actors"""
+        # Cleanup thread pool first to ensure no pending tasks
+        if hasattr(self, 'thread_pool'):
+            logger.info("Closing thread pool...")
+            self.thread_pool.close()
+            self.thread_pool.join()
+            logger.info("Thread pool closed successfully")
+
+        # Then destroy actors
         self.root.destroy()
 
     def add_node(self, node):
@@ -40,6 +52,8 @@ class ActorTree(object):
         """
         Save data from all nodes with complete error handling
 
+        Uses persistent thread pool for efficient parallel processing.
+
         Args:
             frame_id: Current frame ID
             timestamp: Current timestamp
@@ -47,42 +61,32 @@ class ActorTree(object):
         Raises:
             RuntimeError: If any node fails to save data (strict mode)
         """
-        thread_pool = ThreadPool()
         frame_id_list = [frame_id] * len(self.node_list)
         timestamp_list = [timestamp] * len(self.node_list)
 
-        try:
-            # Use safe wrapper method to collect all results
-            results = thread_pool.starmap(
-                self._safe_save_data,
-                zip(frame_id_list, timestamp_list, self.node_list)
+        # Use persistent thread pool - no need to create/destroy on each frame
+        results = self.thread_pool.starmap(
+            self._safe_save_data,
+            zip(frame_id_list, timestamp_list, self.node_list)
+        )
+
+        # Check for failed nodes
+        failed = [r for r in results if not r['success']]
+        if failed:
+            # Log all failure details
+            logger.error(
+                f"Frame {frame_id}: {len(failed)}/{len(self.node_list)} nodes failed to save"
             )
-            thread_pool.close()
-            thread_pool.join()
-
-            # Check for failed nodes
-            failed = [r for r in results if not r['success']]
-            if failed:
-                # Log all failure details
+            for fail_info in failed:
                 logger.error(
-                    f"Frame {frame_id}: {len(failed)}/{len(self.node_list)} nodes failed to save"
-                )
-                for fail_info in failed:
-                    logger.error(
-                        f"  - Node '{fail_info['node']}' failed: {fail_info['error']}"
-                    )
-
-                # Strict mode: immediately raise exception to abort recording
-                raise RuntimeError(
-                    f"Data save failed: {len(failed)} node(s) failed. "
-                    f"See logs above for details. Aborting to ensure data integrity."
+                    f"  - Node '{fail_info['node']}' failed: {fail_info['error']}"
                 )
 
-        except Exception as e:
-            # Ensure thread pool is properly closed
-            logger.exception(f"Critical error during data saving: {e}")
-            thread_pool.terminate()
-            raise
+            # Strict mode: immediately raise exception to abort recording
+            raise RuntimeError(
+                f"Data save failed: {len(failed)} node(s) failed. "
+                f"See logs above for details. Aborting to ensure data integrity."
+            )
 
     def _safe_save_data(self, frame_id, timestamp: float, node: Node) -> dict:
         """
