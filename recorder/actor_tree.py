@@ -1,9 +1,13 @@
 #!/usr/bin/python3
 import os
+import logging
 
 import carla
 from recorder.actor_factory import ActorFactory, Node
 from multiprocessing.dummy import Pool as ThreadPool
+
+# 获取logger实例
+logger = logging.getLogger(__name__)
 
 
 class ActorTree(object):
@@ -33,22 +37,101 @@ class ActorTree(object):
             v2i_layer_node.tick_controller()
 
     def tick_data_saving(self, frame_id, timestamp: float):
+        """
+        Save data from all nodes with complete error handling
+
+        Args:
+            frame_id: Current frame ID
+            timestamp: Current timestamp
+
+        Raises:
+            RuntimeError: If any node fails to save data (strict mode)
+        """
         thread_pool = ThreadPool()
-        frame_id_list = [frame_id for i in range(len(self.node_list))]
-        timestamp_list = [timestamp for i in range(len(self.node_list))]
-        # Changed from starmap_async to starmap to propagate exceptions
-        thread_pool.starmap(self.save_data, zip(frame_id_list, timestamp_list, self.node_list))
-        thread_pool.close()
-        thread_pool.join()
+        frame_id_list = [frame_id] * len(self.node_list)
+        timestamp_list = [timestamp] * len(self.node_list)
+
+        try:
+            # Use safe wrapper method to collect all results
+            results = thread_pool.starmap(
+                self._safe_save_data,
+                zip(frame_id_list, timestamp_list, self.node_list)
+            )
+            thread_pool.close()
+            thread_pool.join()
+
+            # Check for failed nodes
+            failed = [r for r in results if not r['success']]
+            if failed:
+                # Log all failure details
+                logger.error(
+                    f"Frame {frame_id}: {len(failed)}/{len(self.node_list)} nodes failed to save"
+                )
+                for fail_info in failed:
+                    logger.error(
+                        f"  - Node '{fail_info['node']}' failed: {fail_info['error']}"
+                    )
+
+                # Strict mode: immediately raise exception to abort recording
+                raise RuntimeError(
+                    f"Data save failed: {len(failed)} node(s) failed. "
+                    f"See logs above for details. Aborting to ensure data integrity."
+                )
+
+        except Exception as e:
+            # Ensure thread pool is properly closed
+            logger.exception(f"Critical error during data saving: {e}")
+            thread_pool.terminate()
+            raise
+
+    def _safe_save_data(self, frame_id, timestamp: float, node: Node) -> dict:
+        """
+        Safe data saving wrapper that catches exceptions and returns results
+
+        Args:
+            frame_id: Frame ID
+            timestamp: Timestamp
+            node: Node to save
+
+        Returns:
+            dict: Contains success status, node name, and possible error info
+        """
+        try:
+            node.tick_data_saving(frame_id, timestamp)
+            return {
+                'success': True,
+                'node': self._get_node_name(node)
+            }
+        except Exception as e:
+            node_name = self._get_node_name(node)
+            logger.exception(f"Node '{node_name}' failed to save data")
+            return {
+                'success': False,
+                'node': node_name,
+                'error': str(e)
+            }
+
+    def _get_node_name(self, node: Node) -> str:
+        """Get node name (safe)"""
+        try:
+            if node.get_actor():
+                return node.get_actor().name
+        except:
+            pass
+        return 'unknown'
 
     def save_data(self, frame_id, timestamp: float, node: Node):
+        """
+        Save single node data (deprecated, replaced by _safe_save_data)
+        Kept for backward compatibility
+        """
         node.tick_data_saving(frame_id, timestamp)
 
     def print_tree(self):
-        print("------ Actor Tree BEGIN ------")
+        logger.info("------ Actor Tree BEGIN ------")
         for node in self.root.get_children():
-            print("- {}".format(node.get_actor().name))
+            logger.info(f"- {node.get_actor().name}")
             for child_node in node.get_children():
                 if child_node is not None:
-                    print("|- {}".format(child_node.get_actor().name))
-        print("------ Actor Tree END ------")
+                    logger.info(f"|- {child_node.get_actor().name}")
+        logger.info("------ Actor Tree END ------")
