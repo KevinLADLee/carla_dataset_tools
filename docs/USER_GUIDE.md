@@ -7,6 +7,7 @@ This guide covers installation, usage, and common workflows for CARLA Dataset To
 - [Prerequisites](#prerequisites)
 - [Installation](#installation)
 - [Quick Start](#quick-start)
+- [Route Editor](#route-editor)
 - [Configuration Profiles](#configuration-profiles)
 - [Recording Data](#recording-data)
 - [Generating Labels](#generating-labels)
@@ -160,6 +161,127 @@ python3 label_tools/yolo_label.py -r record_2022_0119_1303
 ```bash
 python3 label_tools/argoverse_label.py -r record_2022_0119_1303
 ```
+
+---
+
+## Route Editor
+
+The Route Editor is an interactive tool for creating custom vehicle routes. It allows you to visually define waypoints on the map, and the system automatically calculates road-topology-aware paths for realistic vehicle navigation.
+
+### Why Use Route Editor?
+
+- **Precise Control**: Define exact paths for vehicles to follow during data collection
+- **Loop Routes**: Create circular routes for continuous data recording
+- **Visual Feedback**: See the actual road path vehicles will take (not just straight lines)
+- **Topology-Aware**: Routes follow real road networks, lanes, and intersections
+
+### Quick Start
+
+**1. Launch Route Editor**
+
+Make sure CARLA server is running, then:
+
+```bash
+python3 utils/route_editor.py --map Town02 --name my_route
+```
+
+**2. Create Your Route**
+
+- **Left Click**: Add waypoint (can click same location multiple times)
+- **Right Click on Circle**: Delete waypoint
+- **Ctrl+Z**: Undo last waypoint
+- **Enter**: Save and exit
+- **Escape**: Cancel
+
+**3. Visual Elements**
+
+- **Red Circles**: Your selected waypoints
+- **Lime Green Path**: Actual road path vehicle will follow (topology-aware)
+- **Blue Dashed Line**: Direct connections between waypoints (reference)
+- **Status Counter**: Bottom-right shows waypoint count and loop status
+
+### Creating Loop Routes
+
+To create a loop route, simply make your last waypoint close to your first waypoint (within 5 meters). The system will automatically:
+- Detect the loop
+- Show `[LOOP DETECTED]` in the window title
+- Draw the return path from last to first waypoint
+
+### Using Routes in Configuration
+
+After creating a route, use it in your YAML configuration:
+
+**Method 1: Load from File**
+```yaml
+actors:
+  - type: vehicle.tesla.model3
+    name: vehicle_1st
+    spawn_point: 73
+    route:
+      from_file: routes/Town02_my_route.yaml
+    sensors: [...]
+```
+
+**Method 2: Inline Waypoints**
+```yaml
+actors:
+  - type: vehicle.tesla.model3
+    name: vehicle_1st
+    spawn_point: 73
+    route:
+      mode: strict
+      loop: true  # Optional: for loop routes
+      waypoints:
+        - {x: 107.5, y: -133.2, z: 0.3}
+        - {x: 150.0, y: -130.5, z: 0.3}
+        - {x: 200.3, y: -128.8, z: 0.3}
+    sensors: [...]
+```
+
+### Route Following Modes
+
+- **`strict`**: Vehicle strictly follows waypoint sequence using road topology
+- **`disabled`**: Ignores route, uses default CARLA autopilot
+- **No route specified**: Default autopilot behavior (backward compatible)
+
+### How It Works
+
+1. **User Input**: You specify 3-8 key waypoints
+2. **Path Planning**: GlobalRoutePlanner calculates complete road path between each waypoint pair
+3. **Expansion**: Your 8 waypoints → 450+ road waypoints following lanes/intersections
+4. **Navigation**: BasicAgent guides vehicle along the complete path
+
+**Example Console Output:**
+```
+Vehicle 'vehicle_1st' configured with route: 8 waypoints
+expanded to 453 road waypoints following topology (LOOP)
+```
+
+### Tips
+
+- **For Loop Routes**: Click near the start point at the end (within 5m radius)
+- **Waypoint Placement**: Waypoints represent "must pass through" locations, not every turn
+- **Road Snapping**: Waypoints automatically snap to nearest valid road position
+- **Topology Preview**: Green path shows exactly what vehicle will drive
+- **Testing**: Use `--profile route_example` to see a complete working example
+
+### Example Workflow
+
+```bash
+# 1. Start CARLA
+cd $CARLA_ROOT && ./CarlaUE4.sh
+
+# 2. Create route (in another terminal)
+python3 utils/route_editor.py --map Town02 --name downtown_loop
+
+# 3. Click waypoints on the map
+# 4. Press Enter to save
+
+# 5. Use the route in recording
+python3 data_recorder.py --profile route_example
+```
+
+Saved routes are stored in `routes/` directory as both YAML (human-readable) and PKL (internal) formats.
 
 ---
 

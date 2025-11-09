@@ -19,6 +19,7 @@
 - ✅ **多传感器支持**: RGB 相机、语义分割、激光雷达、语义激光雷达、毫米波雷达
 - ✅ **多种数据集格式**: KITTI Object、YOLOv5、Argoverse
 - ✅ **灵活配置**: 基于 YAML 的配置系统及验证
+- ✅ **路线编辑器**: 交互式工具,用于创建具有拓扑感知路径规划的自定义车辆路线
 - ✅ **路侧单元支持**: 支持 V2X 场景的路侧设备 (RSU) 仿真
 - ✅ **同步录制**: 多车辆和多传感器的同步数据采集
 - ✅ **可视化工具**: 内置点云和数据可视化工具
@@ -58,6 +59,7 @@ python3 label_tools/kitti_objects_label.py -r record_YYYY_MMDD_HHMM
 
 - 安装和前置要求
 - 使用不同配置文件录制数据
+- **路线编辑器** - 交互式创建自定义车辆路线
 - 生成标签 (KITTI, YOLOv5, Argoverse)
 - 数据可视化
 - 故障排除
@@ -86,6 +88,7 @@ python3 label_tools/kitti_objects_label.py -r record_YYYY_MMDD_HHMM
 - **`kitti`** - KITTI 风格 (Velodyne HDL-64E, 标准相机)
 - **`argoverse`** - Argoverse 风格环形相机
 - **`simple`** - 测试用最小配置
+- **`route_example`** - 演示车辆路线跟随功能
 
 ```bash
 # 列出可用配置文件
@@ -93,6 +96,9 @@ python3 utils/list_profiles.py
 
 # 使用配置文件
 python3 data_recorder.py --profile kitti
+
+# 创建自定义车辆路线
+python3 utils/route_editor.py --map Town02 --name my_route
 
 # 验证配置
 python3 utils/validate_config.py --profile kitti
@@ -126,7 +132,7 @@ python3 utils/validate_config.py --profile kitti
 carla_dataset_tools/
 ├── config/                      # 配置管理
 │   ├── config_manager.py        # YAML 配置加载器和验证器
-│   └── profiles/                # 预配置文件 (default, kitti, argoverse, simple)
+│   └── profiles/                # 预配置文件 (default, kitti, argoverse, simple, route_example)
 ├── docs/                        # 文档
 │   ├── USER_GUIDE.md            # 用户指南 (英文)
 │   ├── USER_GUIDE_CN.md         # 用户指南 (中文)
@@ -134,7 +140,8 @@ carla_dataset_tools/
 │   └── DEVELOPER_CN.md          # 开发者指南 (中文)
 ├── label_tools/                 # 标注脚本 (KITTI, YOLO, Argoverse)
 ├── recorder/                    # 核心录制模块
-├── utils/                       # 工具脚本
+├── routes/                      # 车辆路线定义 (YAML + PKL)
+├── utils/                       # 工具脚本 (route_editor, visualize_lidar 等)
 └── data_recorder.py             # 主录制脚本
 ```
 

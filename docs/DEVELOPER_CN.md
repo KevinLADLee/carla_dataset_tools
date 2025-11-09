@@ -25,7 +25,8 @@ carla_dataset_tools/
 │       ├── default.yaml         # 默认配置
 │       ├── kitti.yaml           # KITTI 数据集风格
 │       ├── argoverse.yaml       # Argoverse 数据集风格
-│       └── simple.yaml          # 简单测试配置
+│       ├── simple.yaml          # 简单测试配置
+│       └── route_example.yaml   # 路线配置示例
 ├── label_tools/                 # 标注脚本
 │   ├── kitti_objects_label.py   # KITTI 格式标注
 │   ├── yolo_label.py            # YOLOv5 格式标注
@@ -33,13 +34,20 @@ carla_dataset_tools/
 ├── recorder/                    # 核心录制模块
 │   ├── actor_tree.py            # Actor 层级管理
 │   ├── actor_factory.py         # Actor 和传感器生成
-│   ├── vehicle.py               # 车辆录制
+│   ├── vehicle.py               # 车辆录制,带路线跟随
 │   ├── sensor.py                # 基础传感器类
 │   ├── camera.py                # 相机传感器
 │   ├── lidar.py                 # 激光雷达传感器
 │   ├── radar.py                 # 雷达传感器
-│   └── agents/                  # 自动驾驶代理
+│   └── agents/                  # 自动驾驶和导航代理
+│       ├── navigation/          # 导航组件
+│       │   └── global_route_planner.py  # 拓扑感知路径规划
+│       └── ...
+├── routes/                      # 车辆路线定义
+│   ├── README.md                # 路线系统文档
+│   └── *.yaml, *.pkl            # 路线文件 (YAML + pickle)
 ├── utils/                       # 工具脚本
+│   ├── route_editor.py          # 交互式路线创建工具
 │   ├── visualize_lidar.py       # 点云可视化
 │   ├── validate_config.py       # 配置验证工具
 │   ├── list_profiles.py         # 列出可用配置文件
@@ -244,6 +252,100 @@ other_vehicles:
 - `sensor.lidar.ray_cast_semantic` - 语义激光雷达
 - `sensor.other.radar` - 雷达
 
+### 路线配置
+
+车辆可以配置为使用拓扑感知路径规划跟随预定义路线:
+
+#### YAML 中的路线配置
+
+```yaml
+actors:
+  - type: vehicle.tesla.model3
+    name: ego_vehicle
+    spawn_point: 73
+    route:
+      # 选项 1: 从文件加载
+      from_file: routes/Town02_my_route.yaml
+
+      # 选项 2: 内联路径点
+      mode: strict              # strict | disabled
+      loop: true                # 可选: 用于循环路线
+      waypoints:
+        - {x: 107.5, y: -133.2, z: 0.3}
+        - {x: 150.0, y: -130.5, z: 0.3}
+        - {x: 200.3, y: -128.8, z: 0.3}
+    sensors: [...]
+```
+
+#### 路线文件格式
+
+路线文件 (YAML) 包含路径点定义:
+
+```yaml
+# routes/Town02_my_route.yaml
+mode: strict
+loop: false
+waypoints:
+  - {x: 107.5, y: -133.2, z: 0.3}
+  - {x: 150.0, y: -130.5, z: 0.3}
+  - {x: 200.3, y: -128.8, z: 0.3}
+  - {x: 250.8, y: -125.1, z: 0.3}
+```
+
+相应的 pickle 文件 (`.pkl`) 会自动生成供内部使用。
+
+#### 路线跟随模式
+
+- **`strict`**: 车辆使用 GlobalRoutePlanner 跟随路径点
+  - 路径点扩展为完整的道路拓扑感知路径
+  - 尊重车道、交叉口和道路结构
+  - 示例: 8 个用户路径点 → 450+ 个道路路径点
+
+- **`disabled`**: 忽略路线,使用默认自动驾驶
+
+- **未指定路线**: 默认自动驾驶行为(向后兼容)
+
+#### 创建路线
+
+使用交互式路线编辑器:
+
+```bash
+python3 utils/route_editor.py --map Town02 --name my_route
+```
+
+**特性:**
+- 在地图上可视化选择路径点
+- 使用 GlobalRoutePlanner 实时拓扑感知路径预览
+- 自动检测循环路线(首尾路径点在 5 米内)
+- 撤销支持 (Ctrl+Z)
+- 保存 YAML(人类可读)和 PKL(内部)格式
+
+**控制:**
+- 左键点击: 添加路径点
+- 右键点击圆圈: 删除路径点
+- Ctrl+Z: 撤销
+- Enter: 保存并退出
+- Escape: 取消
+
+#### 实现细节
+
+**路径规划过程:**
+
+1. **用户输入**: 在路线编辑器或 YAML 中定义 3-8 个关键路径点
+2. **GlobalRoutePlanner**: 计算路径点之间的完整道路路径
+   - 使用 CARLA 的道路拓扑图
+   - 尊重车道标记、转弯限制、交叉口
+3. **路线扩展**: 路径点扩展到数百个道路路径点
+4. **BasicAgent**: 沿着完整路径导航车辆
+   - 使用 LocalPlanner 进行轨迹控制
+   - 用于转向、油门、刹车的 PID 控制器
+
+**验证规则:**
+- 至少需要 2 个路径点
+- 每个路径点必须有 x、y、z 坐标
+- 在配置加载期间验证路线文件
+- 无效的路线文件会触发 ConfigValidationError
+
 ### 配置验证
 
 ConfigManager 验证:
@@ -432,6 +534,112 @@ actors:
 ```
 
 所有车辆使用 CARLA 的同步模式同步。
+
+### 基于路线的数据采集
+
+配置车辆跟随特定路径以进行可重复的数据采集:
+
+#### 创建自定义路线
+
+```bash
+# 启动 CARLA 服务器
+cd $CARLA_ROOT && ./CarlaUE4.sh
+
+# 使用交互式编辑器创建路线
+python3 utils/route_editor.py --map Town02 --name highway_loop
+
+# 在地图上点击路径点,沿着您想要的路径
+# 按 Enter 保存
+```
+
+#### 在配置中使用路线
+
+**方法 1: 从文件加载**
+
+```yaml
+actors:
+  - type: vehicle.tesla.model3
+    name: ego_vehicle
+    spawn_point: 73
+    route:
+      from_file: routes/Town02_highway_loop.yaml
+    sensors:
+      - type: sensor.camera.rgb
+        name: front_camera
+        spawn_point: {x: 2.0, y: 0.0, z: 2.0}
+      - type: sensor.lidar.ray_cast
+        name: lidar
+        spawn_point: {x: 0.0, y: 0.0, z: 2.5}
+```
+
+**方法 2: 内联路径点**
+
+```yaml
+actors:
+  - type: vehicle.tesla.model3
+    name: ego_vehicle
+    spawn_point: 73
+    route:
+      mode: strict
+      loop: true
+      waypoints:
+        - {x: 107.5, y: -133.2, z: 0.3}
+        - {x: 150.0, y: -130.5, z: 0.3}
+        - {x: 200.3, y: -128.8, z: 0.3}
+        - {x: 180.5, y: -170.8, z: 0.3}
+    sensors: [...]
+```
+
+#### 路线跟随行为
+
+当路线配置为 `mode: strict` 时:
+
+1. **启动时**: GlobalRoutePlanner 计算完整的道路路径
+   - 输入: 用户的 8 个路径点
+   - 输出: 450+ 个遵循拓扑的道路路径点
+   - 控制台: `Vehicle 'ego_vehicle' configured with route: 8 waypoints expanded to 453 road waypoints (LOOP)`
+
+2. **录制期间**: BasicAgent 跟随路径
+   - 保持车道纪律
+   - 遵守交通灯(可选)
+   - 正确处理交叉口
+   - 如果 `loop: true` 则循环回到起点
+
+3. **数据采集**: 车辆每次录制都遵循相同路径
+   - 可重复的数据集采集
+   - 一致的光照/天气条件
+   - 多次采集的相同视角比较
+
+#### 示例: 用于连续录制的循环路线
+
+```yaml
+# config/profiles/continuous_loop.yaml
+recording:
+  frame_total: 50000        # 长时间录制
+  frame_step: 1
+  map: Town02
+  weather: ClearNoon
+
+actors:
+  - type: vehicle.tesla.model3
+    name: ego_vehicle
+    spawn_point: 73
+    route:
+      from_file: routes/Town02_continuous_loop.yaml
+    sensors:
+      - type: sensor.camera.rgb
+        name: front_camera
+        spawn_point: {x: 2.0, y: 0.0, z: 2.0}
+        image_size_x: 1920
+        image_size_y: 1080
+```
+
+运行:
+```bash
+python3 data_recorder.py --config config/profiles/continuous_loop.yaml
+```
+
+车辆将持续循环采集数据,直到达到 `frame_total`。
 
 ### 自定义天气条件
 

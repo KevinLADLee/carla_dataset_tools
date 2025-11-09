@@ -19,6 +19,7 @@ Data collection and labeling tools for [CARLA Simulator](https://carla.org/). Th
 - ✅ **Multi-Sensor Support**: RGB Camera, Semantic Segmentation, LiDAR, Semantic LiDAR, Radar
 - ✅ **Multiple Dataset Formats**: KITTI Object, YOLOv5, Argoverse
 - ✅ **Flexible Configuration**: YAML-based configuration with validation
+- ✅ **Route Editor**: Interactive tool for creating custom vehicle routes with topology-aware path planning
 - ✅ **Infrastructure Support**: Roadside unit (RSU) simulation for V2X scenarios
 - ✅ **Synchronized Recording**: Synchronized multi-vehicle and multi-sensor data collection
 - ✅ **Visualization Tools**: Built-in point cloud and data visualization utilities
@@ -62,6 +63,7 @@ python3 utils/visualize_lidar.py --type kitti --source dataset/record_YYYY_MMDD_
 
 - Installation and prerequisites
 - Recording data with different profiles
+- **Route Editor** - Create custom vehicle routes interactively
 - Generating labels (KITTI, YOLOv5, Argoverse)
 - Data visualization
 - Troubleshooting
@@ -90,6 +92,7 @@ Pre-configured profiles for different dataset styles:
 - **`kitti`** - KITTI-style (Velodyne HDL-64E, standard cameras)
 - **`argoverse`** - Argoverse-style with ring cameras
 - **`simple`** - Minimal configuration for testing
+- **`route_example`** - Demonstrates vehicle route following feature
 
 ```bash
 # List available profiles
@@ -97,6 +100,9 @@ python3 utils/list_profiles.py
 
 # Use a profile
 python3 data_recorder.py --profile kitti
+
+# Create custom vehicle routes
+python3 utils/route_editor.py --map Town02 --name my_route
 
 # Validate a configuration
 python3 utils/validate_config.py --profile kitti
@@ -130,7 +136,7 @@ See [Developer Guide](docs/DEVELOPER.md) for complete configuration reference.
 carla_dataset_tools/
 ├── config/                      # Configuration management
 │   ├── config_manager.py        # YAML config loader and validator
-│   └── profiles/                # Pre-configured profiles (default, kitti, argoverse, simple)
+│   └── profiles/                # Pre-configured profiles (default, kitti, argoverse, simple, route_example)
 ├── docs/                        # Documentation
 │   ├── USER_GUIDE.md            # User guide (English)
 │   ├── USER_GUIDE_CN.md         # User guide (Chinese)
@@ -138,7 +144,8 @@ carla_dataset_tools/
 │   └── DEVELOPER_CN.md          # Developer guide (Chinese)
 ├── label_tools/                 # Labeling scripts (KITTI, YOLO, Argoverse)
 ├── recorder/                    # Core recording modules
-├── utils/                       # Utility scripts
+├── routes/                      # Vehicle route definitions (YAML + PKL)
+├── utils/                       # Utility scripts (route_editor, visualize_lidar, etc.)
 └── data_recorder.py             # Main recording script
 ```
 

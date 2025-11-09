@@ -25,7 +25,8 @@ carla_dataset_tools/
 │       ├── default.yaml         # Default configuration
 │       ├── kitti.yaml           # KITTI dataset style
 │       ├── argoverse.yaml       # Argoverse dataset style
-│       └── simple.yaml          # Simple testing config
+│       ├── simple.yaml          # Simple testing config
+│       └── route_example.yaml   # Route configuration example
 ├── label_tools/                 # Labeling scripts
 │   ├── kitti_objects_label.py   # KITTI format labeling
 │   ├── yolo_label.py            # YOLOv5 format labeling
@@ -33,13 +34,20 @@ carla_dataset_tools/
 ├── recorder/                    # Core recording modules
 │   ├── actor_tree.py            # Actor hierarchy management
 │   ├── actor_factory.py         # Actor and sensor spawning
-│   ├── vehicle.py               # Vehicle recording
+│   ├── vehicle.py               # Vehicle recording with route following
 │   ├── sensor.py                # Base sensor class
 │   ├── camera.py                # Camera sensors
 │   ├── lidar.py                 # LiDAR sensors
 │   ├── radar.py                 # Radar sensor
-│   └── agents/                  # Autopilot agents
+│   └── agents/                  # Autopilot and navigation agents
+│       ├── navigation/          # Navigation components
+│       │   └── global_route_planner.py  # Topology-aware path planning
+│       └── ...
+├── routes/                      # Vehicle route definitions
+│   ├── README.md                # Route system documentation
+│   └── *.yaml, *.pkl            # Route files (YAML + pickle)
 ├── utils/                       # Utility scripts
+│   ├── route_editor.py          # Interactive route creation tool
 │   ├── visualize_lidar.py       # Point cloud visualization
 │   ├── validate_config.py       # Config validation tool
 │   ├── list_profiles.py         # List available profiles
@@ -244,6 +252,100 @@ Control environmental conditions with weather presets:
 - `sensor.lidar.ray_cast_semantic` - Semantic LiDAR
 - `sensor.other.radar` - Radar
 
+### Route Configuration
+
+Vehicles can be configured to follow predefined routes using topology-aware path planning:
+
+#### Route Configuration in YAML
+
+```yaml
+actors:
+  - type: vehicle.tesla.model3
+    name: ego_vehicle
+    spawn_point: 73
+    route:
+      # Option 1: Load from file
+      from_file: routes/Town02_my_route.yaml
+
+      # Option 2: Inline waypoints
+      mode: strict              # strict | disabled
+      loop: true                # Optional: for circular routes
+      waypoints:
+        - {x: 107.5, y: -133.2, z: 0.3}
+        - {x: 150.0, y: -130.5, z: 0.3}
+        - {x: 200.3, y: -128.8, z: 0.3}
+    sensors: [...]
+```
+
+#### Route File Format
+
+Route files (YAML) contain waypoint definitions:
+
+```yaml
+# routes/Town02_my_route.yaml
+mode: strict
+loop: false
+waypoints:
+  - {x: 107.5, y: -133.2, z: 0.3}
+  - {x: 150.0, y: -130.5, z: 0.3}
+  - {x: 200.3, y: -128.8, z: 0.3}
+  - {x: 250.8, y: -125.1, z: 0.3}
+```
+
+Corresponding pickle files (`.pkl`) are automatically generated for internal use.
+
+#### Route Following Modes
+
+- **`strict`**: Vehicle follows waypoints using GlobalRoutePlanner
+  - Waypoints are expanded into complete road-topology-aware paths
+  - Respects lanes, intersections, and road structure
+  - Example: 8 user waypoints → 450+ road waypoints
+
+- **`disabled`**: Route is ignored, uses default autopilot
+
+- **No route specified**: Default autopilot behavior (backward compatible)
+
+#### Creating Routes
+
+Use the interactive route editor:
+
+```bash
+python3 utils/route_editor.py --map Town02 --name my_route
+```
+
+**Features:**
+- Visual waypoint selection on map
+- Real-time topology-aware path preview using GlobalRoutePlanner
+- Auto-detect loop routes (first and last waypoints within 5m)
+- Undo support (Ctrl+Z)
+- Saves both YAML (human-readable) and PKL (internal) formats
+
+**Controls:**
+- Left click: Add waypoint
+- Right click on circle: Delete waypoint
+- Ctrl+Z: Undo
+- Enter: Save and exit
+- Escape: Cancel
+
+#### Implementation Details
+
+**Path Planning Process:**
+
+1. **User Input**: Define 3-8 key waypoints in route editor or YAML
+2. **GlobalRoutePlanner**: Calculates complete road paths between waypoints
+   - Uses CARLA's road topology graph
+   - Respects lane markings, turn restrictions, intersections
+3. **Route Expansion**: Waypoints expanded to 100s of road waypoints
+4. **BasicAgent**: Navigates vehicle along the complete path
+   - Uses LocalPlanner for trajectory control
+   - PID controllers for steering, throttle, brake
+
+**Validation Rules:**
+- Minimum 2 waypoints required
+- Each waypoint must have x, y, z coordinates
+- Route files validated during configuration loading
+- Invalid route files trigger ConfigValidationError
+
 ### Configuration Validation
 
 The ConfigManager validates:
@@ -432,6 +534,112 @@ actors:
 ```
 
 All vehicles are synchronized using CARLA's synchronous mode.
+
+### Route-Based Data Collection
+
+Configure vehicles to follow specific paths for reproducible data collection:
+
+#### Creating a Custom Route
+
+```bash
+# Start CARLA server
+cd $CARLA_ROOT && ./CarlaUE4.sh
+
+# Create route using interactive editor
+python3 utils/route_editor.py --map Town02 --name highway_loop
+
+# Click waypoints on the map following your desired path
+# Press Enter to save
+```
+
+#### Using Route in Configuration
+
+**Method 1: Load from file**
+
+```yaml
+actors:
+  - type: vehicle.tesla.model3
+    name: ego_vehicle
+    spawn_point: 73
+    route:
+      from_file: routes/Town02_highway_loop.yaml
+    sensors:
+      - type: sensor.camera.rgb
+        name: front_camera
+        spawn_point: {x: 2.0, y: 0.0, z: 2.0}
+      - type: sensor.lidar.ray_cast
+        name: lidar
+        spawn_point: {x: 0.0, y: 0.0, z: 2.5}
+```
+
+**Method 2: Inline waypoints**
+
+```yaml
+actors:
+  - type: vehicle.tesla.model3
+    name: ego_vehicle
+    spawn_point: 73
+    route:
+      mode: strict
+      loop: true
+      waypoints:
+        - {x: 107.5, y: -133.2, z: 0.3}
+        - {x: 150.0, y: -130.5, z: 0.3}
+        - {x: 200.3, y: -128.8, z: 0.3}
+        - {x: 180.5, y: -170.8, z: 0.3}
+    sensors: [...]
+```
+
+#### Route Following Behavior
+
+When route is configured with `mode: strict`:
+
+1. **At Startup**: GlobalRoutePlanner calculates complete road path
+   - Input: User's 8 waypoints
+   - Output: 450+ road waypoints following topology
+   - Console: `Vehicle 'ego_vehicle' configured with route: 8 waypoints expanded to 453 road waypoints (LOOP)`
+
+2. **During Recording**: BasicAgent follows the path
+   - Maintains lane discipline
+   - Respects traffic lights (optional)
+   - Handles intersections properly
+   - Loops back to start if `loop: true`
+
+3. **Data Collection**: Vehicle follows same path every recording
+   - Reproducible dataset collection
+   - Consistent lighting/weather conditions
+   - Same viewpoints for multi-session comparison
+
+#### Example: Loop Route for Continuous Recording
+
+```yaml
+# config/profiles/continuous_loop.yaml
+recording:
+  frame_total: 50000        # Long recording
+  frame_step: 1
+  map: Town02
+  weather: ClearNoon
+
+actors:
+  - type: vehicle.tesla.model3
+    name: ego_vehicle
+    spawn_point: 73
+    route:
+      from_file: routes/Town02_continuous_loop.yaml
+    sensors:
+      - type: sensor.camera.rgb
+        name: front_camera
+        spawn_point: {x: 2.0, y: 0.0, z: 2.0}
+        image_size_x: 1920
+        image_size_y: 1080
+```
+
+Run with:
+```bash
+python3 data_recorder.py --config config/profiles/continuous_loop.yaml
+```
+
+Vehicle will loop continuously collecting data until `frame_total` is reached.
 
 ### Custom Weather Conditions
 
