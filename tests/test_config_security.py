@@ -3,10 +3,16 @@
 Security tests for ConfigManager
 Tests fix for Issue #3: Path Traversal Vulnerability
 """
-import unittest
-import tempfile
+import sys
 import os
 from pathlib import Path
+
+# Add project root to Python path
+project_root = Path(__file__).parent.parent
+sys.path.insert(0, str(project_root))
+
+import unittest
+import tempfile
 import yaml
 import shutil
 

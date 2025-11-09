@@ -3,10 +3,19 @@
 Unit tests for ActorTree thread pool management
 Tests fix for Issue #1: Thread Pool Resource Leak
 """
+import sys
+import os
+from pathlib import Path
+
+# Add project root to Python path
+project_root = Path(__file__).parent.parent
+sys.path.insert(0, str(project_root))
+
 import unittest
 import time
 from unittest.mock import Mock, MagicMock, patch
 from multiprocessing.dummy import Pool as ThreadPool
+from multiprocessing.pool import ThreadPool as ThreadPoolClass
 
 
 class TestActorTreeThreadPool(unittest.TestCase):
@@ -32,7 +41,7 @@ class TestActorTreeThreadPool(unittest.TestCase):
 
         # Verify thread pool exists
         self.assertTrue(hasattr(actor_tree, 'thread_pool'))
-        self.assertIsInstance(actor_tree.thread_pool, ThreadPool)
+        self.assertIsInstance(actor_tree.thread_pool, ThreadPoolClass)
 
     @patch('recorder.actor_tree.ActorFactory')
     def test_thread_pool_reused_across_saves(self, mock_factory):
@@ -119,7 +128,7 @@ class TestActorTreeThreadPool(unittest.TestCase):
         # Count ThreadPool instances before
         initial_pools = sum(
             1 for obj in gc.get_objects()
-            if isinstance(obj, ThreadPool)
+            if isinstance(obj, ThreadPoolClass)
         )
 
         # Create and destroy ActorTree
@@ -134,7 +143,7 @@ class TestActorTreeThreadPool(unittest.TestCase):
         # Count ThreadPool instances after
         final_pools = sum(
             1 for obj in gc.get_objects()
-            if isinstance(obj, ThreadPool)
+            if isinstance(obj, ThreadPoolClass)
         )
 
         # Should not have more pools than before
