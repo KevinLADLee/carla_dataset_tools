@@ -6,3 +6,5 @@ open3d
 shapely
 networkx
 pyyaml>=6.0
+mcap>=1.0.0
+tqdm>=4.65.0
