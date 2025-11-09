@@ -2,11 +2,15 @@
 import copy
 import csv
 import os
+import logging
 import carla
 
 from recorder.actor import Actor
 from recorder.agents.navigation.behavior_agent import BasicAgent
 from recorder.agents.navigation.behavior_agent import BehaviorAgent
+
+# Get logger instance
+logger = logging.getLogger(__name__)
 
 
 class OtherVehicle(Actor):
@@ -133,10 +137,12 @@ class Vehicle(Actor):
             if len(complete_plan) >= 2:
                 self.vehicle_agent.set_global_plan(complete_plan, clean_queue=True)
                 loop_info = " (LOOP)" if is_loop else ""
-                print(f"Vehicle '{self.name}' configured with route: {len(waypoints)} waypoints "
-                      f"expanded to {len(complete_plan)} road waypoints following topology{loop_info}")
+                logger.info(
+                    f"Vehicle '{self.name}' configured with route: {len(waypoints)} waypoints "
+                    f"expanded to {len(complete_plan)} road waypoints following topology{loop_info}"
+                )
             else:
-                print(f"Warning: Vehicle '{self.name}' route planning failed. Using autopilot.")
+                logger.warning(f"Vehicle '{self.name}' route planning failed. Using autopilot.")
                 self.use_auto_pilot = True
 
         elif mode == 'disabled':
@@ -144,7 +150,7 @@ class Vehicle(Actor):
             self.use_auto_pilot = True
             self.vehicle_agent = BasicAgent(self.carla_actor)
         else:
-            print(f"Warning: Unknown route mode '{mode}' for vehicle '{self.name}'. Using autopilot.")
+            logger.warning(f"Unknown route mode '{mode}' for vehicle '{self.name}'. Using autopilot.")
             self.use_auto_pilot = True
             self.vehicle_agent = BasicAgent(self.carla_actor)
 
@@ -206,11 +212,13 @@ class Vehicle(Actor):
                 writer.writerow(csv_line)
 
             if debug:
-                print("\tVehicle status recorded: uid={} name={}".format(self.uid, self.name))
+                logger.debug(f"Vehicle status recorded: uid={self.uid} name={self.name}")
+        except IOError as e:
+            logger.error(f"Failed to write vehicle status to {self.save_dir}: {e}")
+            raise
         except Exception as e:
-            import traceback
-            print("\tERROR: Failed to save vehicle status for uid={} name={}: {}".format(self.uid, self.name, e))
-            traceback.print_exc()
+            logger.exception(f"Unexpected error saving vehicle {self.uid} status: {e}")
+            raise
 
     def save_vehicle_info(self):
         # TODO: Save vehicle physics info here

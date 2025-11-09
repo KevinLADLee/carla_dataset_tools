@@ -2,6 +2,7 @@ import argparse
 import os
 import signal
 import time
+import logging
 
 import carla
 
@@ -10,13 +11,7 @@ from config.config_manager import ConfigManager, ConfigValidationError
 from recorder.actor_tree import ActorTree
 from utils.transform import Transform, Location, Rotation
 from utils.transform import transform_to_carla_transform
-
-sig_interrupt = False
-
-
-def signal_handler(signal, frame):
-    global sig_interrupt
-    sig_interrupt = True
+from utils.logger import configure_global_logging, get_logger
 
 
 class DataRecorder:
@@ -34,6 +29,16 @@ class DataRecorder:
         self.actor_tree = ActorTree(self.world)
         self.frame_total = -1
         self.frame_step = 1
+        self.interrupted = False
+        self.logger = get_logger(__name__)
+
+        # Setup signal handler
+        signal.signal(signal.SIGINT, self._signal_handler)
+
+    def _signal_handler(self, signum, frame):
+        """Handle interrupt signal (Ctrl+C)"""
+        self.logger.info("Interrupt signal received (Ctrl+C), preparing graceful shutdown...")
+        self.interrupted = True
 
     def _get_world(self) -> carla.World:
         return self.carla_client.get_world()
@@ -67,19 +72,19 @@ class DataRecorder:
         settings.max_substep_delta_time = config['world_settings']['max_substep_delta_time']
         settings.max_substeps = config['world_settings']['max_substeps']
 
-        print("World settings:", settings)
+        self.logger.info(f"World settings: {settings}")
         self.world.apply_settings(settings)
 
         # Set weather if specified
         if 'weather' in config['recording'] and config['recording']['weather']:
             weather_preset = config['recording']['weather']
-            print(f"Setting weather to: {weather_preset}")
+            self.logger.info(f"Setting weather to: {weather_preset}")
             try:
                 weather = getattr(carla.WeatherParameters, weather_preset)
                 self.world.set_weather(weather)
-                print(f"✓ Weather set to {weather_preset}")
+                self.logger.info(f"✓ Weather set to {weather_preset}")
             except AttributeError:
-                print(f"⚠ Warning: Weather preset '{weather_preset}' not found, using default")
+                self.logger.warning(f"Weather preset '{weather_preset}' not found, using default")
 
         # Set spectator position if specified
         if 'spectator' in config and config['spectator'] is not None:
@@ -94,7 +99,7 @@ class DataRecorder:
             spectator.set_transform(transform_to_carla_transform(spectator_transform))
 
         # Set synchronous mode for traffic manager
-        print("Set synchronous mode now...")
+        self.logger.info("Setting synchronous mode for traffic manager...")
         self.tm.set_synchronous_mode(True)
 
         # Set recording parameters
@@ -124,52 +129,74 @@ class DataRecorder:
             config: Configuration dictionary
         """
         self.setting_world_and_actors(config)
-        print("Recording to folder: {}".format(self.base_save_dir))
+        self.logger.info(f"Recording to folder: {self.base_save_dir}")
         os.makedirs(self.base_save_dir, exist_ok=True)
-        carla_logfile = "{}/carla_raw_record.log".format(self.base_save_dir)
-        print("Start recording to {}".format(carla_logfile))
+        carla_logfile = f"{self.base_save_dir}/carla_raw_record.log"
+        self.logger.info(f"Start recording to {carla_logfile}")
         self.carla_client.start_recorder(carla_logfile)
+
         try:
             total_frame_count = 0
             while True:
-                print("----------")
+                self.logger.info("="*50)
                 # Tick Control
                 self.actor_tree.tick_controller()
+
                 # Tick World
                 tick_s = time.time()
                 frame_id = self.world.tick(seconds=60.0)
                 world_snapshot = self.world.get_snapshot()
                 timestamp = world_snapshot.timestamp.elapsed_seconds
-                print("World Tick -> FrameID: {} Timestamp: {} Cost: {:.3f}s".format(frame_id,
-                                                                                     timestamp,
-                                                                                     time.time()-tick_s))
+                tick_cost = time.time() - tick_s
+                self.logger.info(
+                    f"World Tick -> FrameID: {frame_id}, "
+                    f"Timestamp: {timestamp:.3f}s, Cost: {tick_cost:.3f}s"
+                )
+
                 # Save data to disk
                 if total_frame_count % self.frame_step == 0:
                     save_s = time.time()
-                    self.actor_tree.tick_data_saving(frame_id, timestamp)
-                    print("Raw data saved, cost {:.3f}s".format(time.time()-save_s))
+                    try:
+                        self.actor_tree.tick_data_saving(frame_id, timestamp)
+                        save_cost = time.time() - save_s
+                        self.logger.info(f"Raw data saved, cost {save_cost:.3f}s")
+                    except (RuntimeError, TimeoutError) as e:
+                        # Data save failed or timeout - strict mode: abort immediately
+                        self.logger.error(
+                            f"Data save failed, aborting recording: {e}"
+                        )
+                        raise
 
-                global sig_interrupt
-                if sig_interrupt:
-                    print("Exit step, wait 2 seconds...")
+                # Check for user interrupt
+                if self.interrupted:
+                    self.logger.info("User interrupt detected, exiting gracefully...")
                     time.sleep(2.0)
                     break
 
                 total_frame_count += 1
                 if total_frame_count >= self.frame_total:
+                    self.logger.info(
+                        f"Reached target frame count: {self.frame_total}, finishing..."
+                    )
                     time.sleep(2.0)
                     break
 
         except KeyboardInterrupt:
-            print("User interrupt, exit...")
-        else:
-            print("Unhandled error: reload the world and exit...")
-        self.destroy()
-        self.carla_client.reload_world()
+            self.logger.info("Keyboard interrupt received, exiting...")
+        except (RuntimeError, TimeoutError) as e:
+            self.logger.error(f"Recording aborted due to error: {e}")
+            self.logger.error("Data integrity may be compromised. Check logs above for details.")
+        except Exception as e:
+            self.logger.exception(f"Unexpected error during recording: {e}")
+        finally:
+            self.logger.info("Cleaning up resources...")
+            self.destroy()
+            self.logger.info("Reloading world...")
+            self.carla_client.reload_world()
+            self.logger.info("Recording session ended.")
 
 
 def main():
-    signal.signal(signal.SIGINT, signal_handler)
     argparser = argparse.ArgumentParser(description=__doc__)
     argparser.add_argument(
         '--host',
@@ -191,50 +218,72 @@ def main():
         '--config',
         type=str,
         help='Path to custom YAML configuration file (overrides --profile)')
+    argparser.add_argument(
+        '--verbose',
+        action='store_true',
+        help='Enable verbose (DEBUG) logging')
+    argparser.add_argument(
+        '--log-file',
+        type=str,
+        help='Path to log file (optional)')
 
     args = argparser.parse_args()
 
+    # Configure global logging system
+    log_level = logging.DEBUG if args.verbose else logging.INFO
+    log_file = args.log_file if hasattr(args, 'log_file') else None
+    configure_global_logging(level=log_level, log_file=log_file)
+
+    logger = get_logger(__name__)
+    logger.info("=" * 60)
+    logger.info("CARLA Dataset Tools - Data Recorder")
+    logger.info("=" * 60)
+
     # Load configuration
     try:
-        config_manager = ConfigManager("{}/config".format(ROOT_PATH))
+        config_manager = ConfigManager(f"{ROOT_PATH}/config")
 
         if args.config:
             # Load custom config file
-            print(f"Loading configuration from: {args.config}")
+            logger.info(f"Loading configuration from: {args.config}")
             config = config_manager.load_config(args.config)
         else:
             # Load profile
-            print(f"Loading configuration profile: {args.profile}")
+            logger.info(f"Loading configuration profile: {args.profile}")
             available_profiles = config_manager.list_profiles()
             if args.profile not in available_profiles:
-                print(f"Error: Profile '{args.profile}' not found")
-                print(f"Available profiles: {', '.join(available_profiles)}")
+                logger.error(f"Profile '{args.profile}' not found")
+                logger.info(f"Available profiles: {', '.join(available_profiles)}")
                 return 1
             config = config_manager.load_profile(args.profile)
 
-        print(f"Configuration loaded successfully!")
-        print(f"  Map: {config['recording']['map']}")
-        print(f"  Frames: {config['recording']['frame_total']}")
-        print(f"  Frame step: {config['recording']['frame_step']}")
-        print(f"  Actors: {len(config['actors'])}")
+        logger.info("Configuration loaded successfully!")
+        logger.info(f"  Map: {config['recording']['map']}")
+        logger.info(f"  Frames: {config['recording']['frame_total']}")
+        logger.info(f"  Frame step: {config['recording']['frame_step']}")
+        logger.info(f"  Actors: {len(config['actors'])}")
 
     except FileNotFoundError as e:
-        print(f"Error: {e}")
+        logger.error(f"Configuration file not found: {e}")
         return 1
     except ConfigValidationError as e:
-        print(f"Configuration validation error: {e}")
+        logger.error(f"Configuration validation error: {e}")
         return 1
     except Exception as e:
-        print(f"Error loading configuration: {e}")
-        import traceback
-        traceback.print_exc()
+        logger.exception(f"Unexpected error loading configuration: {e}")
         return 1
 
     # Start recording
-    data_recorder = DataRecorder(args)
-    data_recorder.start_record(config)
+    try:
+        data_recorder = DataRecorder(args)
+        data_recorder.start_record(config)
+    except Exception as e:
+        logger.exception(f"Fatal error in data recorder: {e}")
+        return 1
+
+    return 0
 
 
 if __name__ == "__main__":
     # execute only if run as a script
-    main()
+    exit(main())

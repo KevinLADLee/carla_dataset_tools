@@ -1,6 +1,10 @@
 #!/usr/bin/python3
+import logging
 import carla
 from recorder.actor import PseudoActor
+
+# Get logger instance
+logger = logging.getLogger(__name__)
 
 
 class Infrastructure(PseudoActor):
@@ -28,6 +32,7 @@ class Infrastructure(PseudoActor):
 
     def save_to_disk(self, frame_id, timestamp, debug=False):
         if debug:
-            print("\tInfrastructure status recorded: uid={} name={}".format(self.uid, self.name))
+            logger.debug(f"Infrastructure status recorded: uid={self.uid} name={self.name}")
+
 
 

@@ -1,12 +1,16 @@
 #!/usr/bin/python3
 import os
 import pickle
+import logging
 import carla
 from dataclasses import dataclass
 
 from recorder.actor import PseudoActor
 from utils.label_types import *
 from utils.transform import carla_bbox_to_bbox, carla_transform_to_transform
+
+# Get logger instance
+logger = logging.getLogger(__name__)
 
 
 class WorldActor(PseudoActor):
@@ -53,7 +57,7 @@ class WorldActor(PseudoActor):
         with open('{}/{:0>10d}.pkl'.format(self.save_dir, frame_id), 'wb') as pkl_file:
             pickle.dump(obj=object_labels, file=pkl_file)
         if debug:
-            print("WorldObjectsLabel: Frame: {} Total counts: {}".format(frame_id, len(object_labels)))
+            logger.debug(f"WorldObjectsLabel: Frame: {frame_id} Total counts: {len(object_labels)}")
         return True
 
     def get_type_id(self):

@@ -2,6 +2,7 @@
 import os
 import random
 import warnings
+import logging
 from enum import Enum
 from pathlib import Path
 import yaml
@@ -19,6 +20,9 @@ from recorder.radar import Radar
 from recorder.vehicle import Vehicle, OtherVehicle
 from recorder.infrastructure import Infrastructure
 from recorder.world import WorldActor
+
+# Get logger instance
+logger = logging.getLogger(__name__)
 
 
 class NodeType(Enum):
@@ -168,7 +172,7 @@ class ActorFactory(object):
                 spawn_point.pop("yaw", 0.0))
         blueprint = self.blueprint_lib.find(vehicle_type)
         carla_actor = self.world.spawn_actor(blueprint, transform)
-        print(vehicle_name)
+        logger.debug(f"Created vehicle: {vehicle_name}")
 
         # Parse route configuration if present
         route_config = None
@@ -286,7 +290,7 @@ class ActorFactory(object):
                     # Use waypoints and mode from file
                     route_config['waypoints'] = route_data.get('waypoints', [])
                     route_config['mode'] = route_data.get('mode', 'strict')
-                    print(f"Loaded route from file: {route_file} ({len(route_config['waypoints'])} waypoints)")
+                    logger.info(f"Loaded route from file: {route_file} ({len(route_config['waypoints'])} waypoints)")
             except Exception as e:
                 warnings.warn(f"Failed to load route from {route_file}: {e}")
                 return None
@@ -361,8 +365,8 @@ class ActorFactory(object):
                                  carla_actor=carla_actor,
                                  parent=parent_actor)
         else:
-            print("Unsupported sensor type: {}".format(sensor_type))
-            raise AttributeError
+            logger.error(f"Unsupported sensor type: {sensor_type}")
+            raise AttributeError(f"Unsupported sensor type: {sensor_type}")
         sensor_node = Node(sensor_actor, NodeType.SENSOR)
         return sensor_node
 
