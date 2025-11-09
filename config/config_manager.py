@@ -296,7 +296,7 @@ class ConfigManager:
                 self._validate_sensors(actor['sensors'], i, config_path)
 
     def _validate_route(self, route: Dict[str, Any], actor_index: int, config_path: str):
-        """Validate route configuration for an actor"""
+        """Validate route configuration for an actor with path traversal protection"""
         if not isinstance(route, dict):
             raise ConfigValidationError(
                 f"Actor {actor_index} route must be a dictionary in {config_path}"
@@ -304,22 +304,64 @@ class ConfigManager:
 
         # Check if loading from file
         if 'from_file' in route:
-            route_file = Path(route['from_file'])
-            # If relative path, make it relative to project root
-            if not route_file.is_absolute():
-                route_file = self.config_root.parent / route_file
+            route_file_str = route['from_file']
 
-            if not route_file.exists():
+            # Security: Sanitize path to prevent path traversal attacks
+            # Normalize path to resolve .. and . components
+            route_file_str = os.path.normpath(route_file_str)
+
+            # Reject absolute paths and paths starting with ..
+            if os.path.isabs(route_file_str) or route_file_str.startswith('..'):
                 raise ConfigValidationError(
-                    f"Actor {actor_index} route file not found: {route['from_file']} in {config_path}"
+                    f"Actor {actor_index} route path traversal detected: {route['from_file']}. "
+                    f"Route files must be relative paths within the routes/ directory. "
+                    f"Example: 'Town02_example_route.yaml' or 'custom/my_route.yaml'"
+                )
+
+            # Resolve relative to routes directory (not config root)
+            routes_dir = self.config_root.parent / 'routes'
+            route_file = routes_dir / route_file_str
+
+            # Verify resolved path is within routes directory (prevent symlink attacks)
+            try:
+                route_file_resolved = route_file.resolve(strict=True)
+                routes_dir_resolved = routes_dir.resolve()
+
+                # Check if resolved path starts with routes directory
+                if not str(route_file_resolved).startswith(str(routes_dir_resolved)):
+                    raise ConfigValidationError(
+                        f"Actor {actor_index} route file must be within routes/ directory. "
+                        f"Attempted to access: {route['from_file']}"
+                    )
+            except FileNotFoundError:
+                raise ConfigValidationError(
+                    f"Actor {actor_index} route file not found: {route['from_file']}. "
+                    f"Place route files in the routes/ directory."
+                )
+            except OSError as e:
+                raise ConfigValidationError(
+                    f"Actor {actor_index} route file error: {route['from_file']}: {e}"
+                )
+
+            # Security: Check file size to prevent resource exhaustion
+            file_size = route_file_resolved.stat().st_size
+            max_route_size = 1024 * 1024  # 1MB limit for route files
+            if file_size > max_route_size:
+                raise ConfigValidationError(
+                    f"Actor {actor_index} route file too large: {route['from_file']} "
+                    f"({file_size} bytes, max: {max_route_size} bytes / 1MB)"
                 )
 
             # Load and validate the route file
             try:
-                with open(route_file, 'r', encoding='utf-8') as f:
+                with open(route_file_resolved, 'r', encoding='utf-8') as f:
                     route_data = yaml.safe_load(f)
                     if 'waypoints' in route_data:
                         self._validate_waypoints(route_data['waypoints'], actor_index, config_path)
+            except yaml.YAMLError as e:
+                raise ConfigValidationError(
+                    f"Actor {actor_index} failed to parse route YAML from {route['from_file']}: {e}"
+                )
             except Exception as e:
                 raise ConfigValidationError(
                     f"Actor {actor_index} failed to load route from {route['from_file']}: {e}"
