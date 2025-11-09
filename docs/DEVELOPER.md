@@ -46,14 +46,21 @@ carla_dataset_tools/
 ├── routes/                      # Vehicle route definitions
 │   ├── README.md                # Route system documentation
 │   └── *.yaml, *.pkl            # Route files (YAML + pickle)
-├── utils/                       # Utility scripts
-│   ├── route_editor.py          # Interactive route creation tool
-│   ├── visualize_lidar.py       # Point cloud visualization
-│   ├── validate_config.py       # Config validation tool
-│   ├── list_profiles.py         # List available profiles
-│   ├── convert_json_to_yaml.py  # JSON to YAML converter
+├── core/                        # Core shared modules
+│   ├── geometry.py              # Geometric types (Vector3d, Location, Transform, etc.)
+│   ├── types.py                 # Label and object types
 │   ├── transform.py             # Coordinate transformations
-│   └── geometry_types.py        # Geometry utilities
+│   ├── converters.py            # Data format converters
+│   └── logger.py                # Unified logging system
+├── tools/                       # CLI utility scripts
+│   ├── viz_lidar.py             # Point cloud visualization
+│   ├── viz_map.py               # Map visualization
+│   ├── editor_route.py          # Interactive route creation tool
+│   ├── data_generate_imageset.py # Dataset file list generation
+│   ├── config_convert.py        # JSON to YAML converter
+│   ├── config_list.py           # List available profiles
+│   ├── config_validate.py       # Config validation tool
+│   └── debug_info.py            # Debug information display
 ├── data_recorder.py             # Main recording script
 └── param.py                     # Global parameters
 ```
@@ -310,7 +317,7 @@ Corresponding pickle files (`.pkl`) are automatically generated for internal use
 Use the interactive route editor:
 
 ```bash
-python3 utils/route_editor.py --map Town02 --name my_route
+python3 tools/editor_route.py --map Town02 --name my_route
 ```
 
 **Features:**
@@ -463,8 +470,8 @@ sensor_transform = camera.get_transform()
 ### Transform Utilities
 
 ```python
-from utils.transform import Transform, Location, Rotation
-from utils.transform import transform_to_carla_transform
+from core.transform import Transform, Location, Rotation
+from core.transform import transform_to_carla_transform
 
 # Create transform
 transform = Transform(
@@ -784,7 +791,7 @@ pip install pytest black flake8
 
 ```bash
 # Validate all profiles
-python3 utils/validate_config.py --all
+python3 tools/config_validate.py --all
 
 # Test configuration loading
 python3 -c "from config.config_manager import ConfigManager; \
@@ -836,7 +843,7 @@ def _on_data(self, data):
 
 3. **Verify spawn points:**
 ```bash
-python3 utils/find_spawn_points.py --map Town02
+python3 tools/debug_info.py --map Town02
 ```
 
 4. **Monitor performance:**

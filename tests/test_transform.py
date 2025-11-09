@@ -21,7 +21,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 import carla
 import numpy as np
 
-from utils.transform import (
+from core.transform import (
     carla_location_to_numpy_vec,
     carla_location_to_location,
     carla_rotation_to_RPY,
@@ -36,7 +36,7 @@ from utils.transform import (
     carla_bbox_to_bbox,
     bbox_to_o3d_bbox
 )
-from utils.geometry_types import Location, Rotation, Transform, Vector3d, BoundingBox
+from core.geometry import Location, Rotation, Transform, Vector3d, BoundingBox
 
 
 class TestCoordinateTransformation(unittest.TestCase):

@@ -289,7 +289,7 @@ def _parse_route_config(self, route_info):
 
 **解决方案**: 创建统一的日志系统
 
-**步骤1**: 创建 `utils/logger.py`
+**步骤1**: 创建 `core/logger.py`
 
 ```python
 #!/usr/bin/env python3
@@ -352,7 +352,7 @@ def setup_logger(
         配置好的logger实例
 
     Example:
-        >>> from utils.logger import get_logger
+        >>> from core.logger import get_logger
         >>> logger = get_logger(__name__)
         >>> logger.info("开始录制数据")
         >>> logger.error("传感器 camera_01 失败")
@@ -428,7 +428,7 @@ def configure_global_logging(
         log_file: 日志文件路径
 
     Example:
-        >>> from utils.logger import configure_global_logging
+        >>> from core.logger import configure_global_logging
         >>> import logging
         >>> configure_global_logging(
         ...     level=logging.DEBUG,
@@ -460,7 +460,7 @@ print(f"✓ Weather set to {weather_preset}")
 print("Start recording to {}".format(carla_logfile))
 
 # 新代码
-from utils.logger import get_logger
+from core.logger import get_logger
 logger = get_logger(__name__)
 
 logger.info(f"World settings: {settings}")
@@ -476,7 +476,7 @@ def main():
     # ... 参数解析 ...
 
     # 配置全局日志
-    from utils.logger import configure_global_logging
+    from core.logger import configure_global_logging
     import logging
 
     log_level = logging.DEBUG if args.verbose else logging.INFO
@@ -581,7 +581,7 @@ except Exception as e:
 2. `recorder/actor_factory.py` - 工厂类
 3. `recorder/vehicle.py` - 车辆类
 4. `recorder/sensor.py` - 传感器基类
-5. `utils/transform.py` - 坐标转换
+5. `core/transform.py` - 坐标转换
 
 **示例改进** - recorder/actor.py:
 ```python
@@ -1383,7 +1383,7 @@ actors:
 - [ ] **P0-1**: 修复线程安全问题 (actor_tree.py) - 4小时
 - [ ] **P0-2**: 修复传感器队列阻塞 (sensor.py) - 3小时
 - [ ] **P1-3**: 修复路径遍历风险 (actor_factory.py) - 2小时
-- [ ] **P1-4**: 创建日志系统 (utils/logger.py) - 4小时
+- [ ] **P1-4**: 创建日志系统 (core/logger.py) - 4小时
 - [ ] **P1-5**: 替换关键模块的print语句 - 8小时
   - [ ] data_recorder.py
   - [ ] recorder/actor_tree.py
@@ -1425,7 +1425,7 @@ actors:
   - [ ] recorder/actor_factory.py
   - [ ] recorder/vehicle.py
   - [ ] recorder/sensor.py
-  - [ ] utils/transform.py
+  - [ ] core/transform.py
   - [ ] 配置mypy
   - [ ] 修复类型错误
 - [ ] 代码格式化（black, isort）

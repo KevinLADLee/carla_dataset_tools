@@ -182,7 +182,7 @@ The Route Editor is an interactive tool for creating custom vehicle routes. It a
 Make sure CARLA server is running, then:
 
 ```bash
-python3 utils/route_editor.py --map Town02 --name my_route
+python3 tools/editor_route.py --map Town02 --name my_route
 ```
 
 **2. Create Your Route**
@@ -300,10 +300,10 @@ The toolkit includes several pre-configured profiles located in `config/profiles
 
 ```bash
 # List available profiles
-python3 utils/list_profiles.py
+python3 tools/config_list.py
 
 # Validate a profile
-python3 utils/validate_config.py --profile kitti
+python3 tools/config_validate.py --profile kitti
 
 # Use a profile for recording
 python3 data_recorder.py --profile kitti
@@ -323,7 +323,7 @@ python3 data_recorder.py --profile kitti
 
 3. **Validate your configuration:**
    ```bash
-   python3 utils/validate_config.py config/profiles/my_config.yaml
+   python3 tools/config_validate.py config/profiles/my_config.yaml
    ```
 
 4. **Use your configuration:**
@@ -425,10 +425,10 @@ Output includes:
 
 ```bash
 # Visualize a single file
-python3 utils/visualize_lidar.py --type lidar --source raw_data/record_2022_0119_1303/vehicle.tesla.model3_1/000001_lidar.npy
+python3 tools/viz_lidar.py --type lidar --source raw_data/record_2022_0119_1303/vehicle.tesla.model3_1/000001_lidar.npy
 
 # Visualize all frames (glob mode)
-python3 utils/visualize_lidar.py --type lidar --source raw_data/record_2022_0119_1303/vehicle.tesla.model3_1/
+python3 tools/viz_lidar.py --type lidar --source raw_data/record_2022_0119_1303/vehicle.tesla.model3_1/
 ```
 
 **Supported types:**
@@ -540,7 +540,7 @@ pip3 install "numpy>=1.24.4,<2.0"
 1. Check YAML syntax is valid
 2. Ensure all required fields are present
 3. Validate sensor types match CARLA 0.9.16 API
-4. Use validation tool: `python3 utils/validate_config.py --profile <name>`
+4. Use validation tool: `python3 tools/config_validate.py --profile <name>`
 
 ### Issue: Spawn point collision
 
@@ -548,7 +548,7 @@ pip3 install "numpy>=1.24.4,<2.0"
 1. Change spawn points in configuration
 2. Reduce number of vehicles
 3. Use different map with more spawn points
-4. Use `utils/find_spawn_points.py` to discover valid positions
+4. Use `tools/debug_info.py` to discover valid positions
 
 ### Issue: Missing sensor data in output
 

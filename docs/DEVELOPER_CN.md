@@ -46,14 +46,21 @@ carla_dataset_tools/
 ├── routes/                      # 车辆路线定义
 │   ├── README.md                # 路线系统文档
 │   └── *.yaml, *.pkl            # 路线文件 (YAML + pickle)
-├── utils/                       # 工具脚本
-│   ├── route_editor.py          # 交互式路线创建工具
-│   ├── visualize_lidar.py       # 点云可视化
-│   ├── validate_config.py       # 配置验证工具
-│   ├── list_profiles.py         # 列出可用配置文件
-│   ├── convert_json_to_yaml.py  # JSON 到 YAML 转换器
+├── core/                        # 核心共享模块
+│   ├── geometry.py              # 几何类型 (Vector3d, Location, Transform 等)
+│   ├── types.py                 # 标签和对象类型
 │   ├── transform.py             # 坐标转换
-│   └── geometry_types.py        # 几何工具
+│   ├── converters.py            # 数据格式转换器
+│   └── logger.py                # 统一日志系统
+├── tools/                       # CLI 工具脚本
+│   ├── viz_lidar.py             # 点云可视化
+│   ├── viz_map.py               # 地图可视化
+│   ├── editor_route.py          # 交互式路线创建工具
+│   ├── data_generate_imageset.py # 数据集文件列表生成
+│   ├── config_convert.py        # JSON 到 YAML 转换器
+│   ├── config_list.py           # 列出可用配置文件
+│   ├── config_validate.py       # 配置验证工具
+│   └── debug_info.py            # 调试信息显示
 ├── data_recorder.py             # 主录制脚本
 └── param.py                     # 全局参数
 ```
@@ -310,7 +317,7 @@ waypoints:
 使用交互式路线编辑器:
 
 ```bash
-python3 utils/route_editor.py --map Town02 --name my_route
+python3 tools/editor_route.py --map Town02 --name my_route
 ```
 
 **特性:**
@@ -463,8 +470,8 @@ sensor_transform = camera.get_transform()
 ### 变换工具
 
 ```python
-from utils.transform import Transform, Location, Rotation
-from utils.transform import transform_to_carla_transform
+from core.transform import Transform, Location, Rotation
+from core.transform import transform_to_carla_transform
 
 # 创建变换
 transform = Transform(
@@ -784,7 +791,7 @@ pip install pytest black flake8
 
 ```bash
 # 验证所有配置文件
-python3 utils/validate_config.py --all
+python3 tools/config_validate.py --all
 
 # 测试配置加载
 python3 -c "from config.config_manager import ConfigManager; \
@@ -836,7 +843,7 @@ def _on_data(self, data):
 
 3. **验证生成点:**
 ```bash
-python3 utils/find_spawn_points.py --map Town02
+python3 tools/debug_info.py --map Town02
 ```
 
 4. **监控性能:**

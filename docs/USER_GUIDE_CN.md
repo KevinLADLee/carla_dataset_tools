@@ -182,7 +182,7 @@ python3 label_tools/argoverse_label.py -r record_2022_0119_1303
 确保 CARLA 服务器正在运行,然后:
 
 ```bash
-python3 utils/route_editor.py --map Town02 --name my_route
+python3 tools/editor_route.py --map Town02 --name my_route
 ```
 
 **2. 创建您的路线**
@@ -300,10 +300,10 @@ python3 data_recorder.py --profile route_example
 
 ```bash
 # 列出可用配置文件
-python3 utils/list_profiles.py
+python3 tools/config_list.py
 
 # 验证配置文件
-python3 utils/validate_config.py --profile kitti
+python3 tools/config_validate.py --profile kitti
 
 # 使用配置文件进行录制
 python3 data_recorder.py --profile kitti
@@ -323,7 +323,7 @@ python3 data_recorder.py --profile kitti
 
 3. **验证您的配置:**
    ```bash
-   python3 utils/validate_config.py config/profiles/my_config.yaml
+   python3 tools/config_validate.py config/profiles/my_config.yaml
    ```
 
 4. **使用您的配置:**
@@ -425,10 +425,10 @@ python3 label_tools/yolo_label.py -r <record_name>
 
 ```bash
 # 可视化单个文件
-python3 utils/visualize_lidar.py --type lidar --source raw_data/record_2022_0119_1303/vehicle.tesla.model3_1/000001_lidar.npy
+python3 tools/viz_lidar.py --type lidar --source raw_data/record_2022_0119_1303/vehicle.tesla.model3_1/000001_lidar.npy
 
 # 可视化所有帧 (glob 模式)
-python3 utils/visualize_lidar.py --type lidar --source raw_data/record_2022_0119_1303/vehicle.tesla.model3_1/
+python3 tools/viz_lidar.py --type lidar --source raw_data/record_2022_0119_1303/vehicle.tesla.model3_1/
 ```
 
 **支持的类型:**
@@ -540,7 +540,7 @@ pip3 install "numpy>=1.24.4,<2.0"
 1. 检查 YAML 语法是否有效
 2. 确保所有必需字段都存在
 3. 验证传感器类型与 CARLA 0.9.16 API 匹配
-4. 使用验证工具: `python3 utils/validate_config.py --profile <name>`
+4. 使用验证工具: `python3 tools/config_validate.py --profile <name>`
 
 ### 问题: 生成点碰撞
 
@@ -548,7 +548,7 @@ pip3 install "numpy>=1.24.4,<2.0"
 1. 在配置中更改生成点
 2. 减少车辆数量
 3. 使用有更多生成点的不同地图
-4. 使用 `utils/find_spawn_points.py` 发现有效位置
+4. 使用 `tools/debug_info.py` 发现有效位置
 
 ### 问题: 输出中缺少传感器数据
 

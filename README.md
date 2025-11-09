@@ -49,7 +49,7 @@ python3 data_recorder.py --profile kitti
 python3 label_tools/kitti_objects_label.py -r record_YYYY_MMDD_HHMM -v vehicle_1st
 
 # 6. Visulize output dataset
-python3 utils/visualize_lidar.py --type kitti --source dataset/record_YYYY_MMDD_HHMM/vehicle_1st/kitti_object/training/velodyne
+python3 tools/viz_lidar.py --type kitti --source dataset/record_YYYY_MMDD_HHMM/vehicle_1st/kitti_object/training/velodyne
 
 ```
 
@@ -96,16 +96,16 @@ Pre-configured profiles for different dataset styles:
 
 ```bash
 # List available profiles
-python3 utils/list_profiles.py
+python3 tools/config_list.py
 
 # Use a profile
 python3 data_recorder.py --profile kitti
 
 # Create custom vehicle routes
-python3 utils/route_editor.py --map Town02 --name my_route
+python3 tools/editor_route.py --map Town02 --name my_route
 
 # Validate a configuration
-python3 utils/validate_config.py --profile kitti
+python3 tools/config_validate.py --profile kitti
 ```
 
 See [Developer Guide](docs/DEVELOPER.md) for complete configuration reference.
@@ -145,7 +145,8 @@ carla_dataset_tools/
 ├── label_tools/                 # Labeling scripts (KITTI, YOLO, Argoverse)
 ├── recorder/                    # Core recording modules
 ├── routes/                      # Vehicle route definitions (YAML + PKL)
-├── utils/                       # Utility scripts (route_editor, visualize_lidar, etc.)
+├── core/                        # Core shared modules (geometry, transform, logger)
+├── tools/                       # CLI utility scripts (editor_route, viz_lidar, etc.)
 └── data_recorder.py             # Main recording script
 ```
 

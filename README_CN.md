@@ -92,16 +92,16 @@ python3 label_tools/kitti_objects_label.py -r record_YYYY_MMDD_HHMM
 
 ```bash
 # 列出可用配置文件
-python3 utils/list_profiles.py
+python3 tools/config_list.py
 
 # 使用配置文件
 python3 data_recorder.py --profile kitti
 
 # 创建自定义车辆路线
-python3 utils/route_editor.py --map Town02 --name my_route
+python3 tools/editor_route.py --map Town02 --name my_route
 
 # 验证配置
-python3 utils/validate_config.py --profile kitti
+python3 tools/config_validate.py --profile kitti
 ```
 
 完整配置参考请查看[开发者指南](docs/DEVELOPER_CN.md)。
@@ -141,7 +141,8 @@ carla_dataset_tools/
 ├── label_tools/                 # 标注脚本 (KITTI, YOLO, Argoverse)
 ├── recorder/                    # 核心录制模块
 ├── routes/                      # 车辆路线定义 (YAML + PKL)
-├── utils/                       # 工具脚本 (route_editor, visualize_lidar 等)
+├── core/                        # 核心共享模块（几何、转换、日志）
+├── tools/                       # CLI 工具脚本（editor_route, viz_lidar 等）
 └── data_recorder.py             # 主录制脚本
 ```
 

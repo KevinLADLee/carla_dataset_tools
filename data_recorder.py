@@ -9,9 +9,9 @@ import carla
 from param import *
 from config.config_manager import ConfigManager, ConfigValidationError
 from recorder.actor_tree import ActorTree
-from utils.transform import Transform, Location, Rotation
-from utils.transform import transform_to_carla_transform
-from utils.logger import configure_global_logging, get_logger
+from core.transform import Transform, Location, Rotation
+from core.transform import transform_to_carla_transform
+from core.logger import configure_global_logging, get_logger
 
 
 class DataRecorder:
