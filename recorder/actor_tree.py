@@ -405,6 +405,10 @@ class ActorTree(object):
             frame_id: Current frame ID
             timestamp: Current timestamp
 
+        Returns:
+            dict: Collected save information from all actors
+                  Format: {actor_name: actor_save_info, ...}
+
         Raises:
             RuntimeError: If any node fails to save data (strict mode)
         """
@@ -435,6 +439,49 @@ class ActorTree(object):
                 f"See logs above for details. Aborting to ensure data integrity."
             )
 
+        # Collect save information from all nodes
+        actors_info = {}
+        for result in results:
+            if result['success'] and result.get('save_info'):
+                save_info = result['save_info']
+                actor_name = save_info.get('name')
+                if actor_name:
+                    # For vehicles with sensors, group sensors under vehicle
+                    if save_info['type'] == 'sensor':
+                        parent_name = self._get_parent_name_for_sensor(result['node'])
+                        if parent_name:
+                            if parent_name not in actors_info:
+                                actors_info[parent_name] = {
+                                    'type': 'vehicle',
+                                    'name': parent_name,
+                                    'sensors': {}
+                                }
+                            # Ensure 'sensors' key exists (in case vehicle was added first)
+                            if 'sensors' not in actors_info[parent_name]:
+                                actors_info[parent_name]['sensors'] = {}
+                            actors_info[parent_name]['sensors'][actor_name] = save_info
+                        else:
+                            # Standalone sensor (no vehicle parent)
+                            actors_info[actor_name] = save_info
+                    else:
+                        # Vehicle or World actor
+                        if actor_name in actors_info:
+                            # Merge with existing (has sensors)
+                            # Preserve existing 'sensors' dict if it exists
+                            existing_sensors = actors_info[actor_name].get('sensors', {})
+                            actors_info[actor_name].update(save_info)
+                            # Restore sensors (in case save_info overwrote it)
+                            if existing_sensors:
+                                if 'sensors' not in actors_info[actor_name]:
+                                    actors_info[actor_name]['sensors'] = existing_sensors
+                                else:
+                                    # Merge sensors if both exist
+                                    actors_info[actor_name]['sensors'].update(existing_sensors)
+                        else:
+                            actors_info[actor_name] = save_info
+
+        return actors_info
+
     def _safe_save_data(self, frame_id, timestamp: float, node: Node) -> dict:
         """
         Safe data saving wrapper that catches exceptions and returns results
@@ -445,13 +492,14 @@ class ActorTree(object):
             node: Node to save
 
         Returns:
-            dict: Contains success status, node name, and possible error info
+            dict: Contains success status, node name, save_info, and possible error info
         """
         try:
-            node.tick_data_saving(frame_id, timestamp)
+            save_info = node.tick_data_saving(frame_id, timestamp)
             return {
                 'success': True,
-                'node': self._get_node_name(node)
+                'node': self._get_node_name(node),
+                'save_info': save_info
             }
         except Exception as e:
             node_name = self._get_node_name(node)
@@ -459,8 +507,31 @@ class ActorTree(object):
             return {
                 'success': False,
                 'node': node_name,
-                'error': str(e)
+                'error': str(e),
+                'save_info': None
             }
+
+    def _get_parent_name_for_sensor(self, node_name: str) -> str:
+        """
+        Get parent vehicle name for a sensor node
+
+        Args:
+            node_name: Sensor node name
+
+        Returns:
+            Parent vehicle name, or None if no parent found
+        """
+        # Try to find the parent vehicle by looking at node tree structure
+        for node in self.node_list:
+            actor = node.get_actor()
+            if actor and hasattr(actor, 'name'):
+                # Check if this node has children that match the sensor name
+                for child in node.get_children():
+                    child_actor = child.get_actor()
+                    if child_actor and hasattr(child_actor, 'name'):
+                        if child_actor.name == node_name:
+                            return actor.name
+        return None
 
     def _get_node_name(self, node: Node) -> str:
         """Get node name (safe)"""

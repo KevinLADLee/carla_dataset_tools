@@ -20,6 +20,12 @@ class WorldActor(PseudoActor):
         self.carla_world = carla_world
 
     def save_to_disk(self, frame_id, timestamp, debug=False):
+        """
+        Save world objects to disk
+
+        Returns:
+            dict: World objects information including counts by type
+        """
         # TODO: Save all object bbox in world
         # Frame Timestamp CityObjectLabel carla_id location rotation box_location box_extent
         object_labels = []
@@ -51,14 +57,40 @@ class WorldActor(PseudoActor):
                                                  bounding_box=bbox))
 
         if len(object_labels) == 0:
-            return False
+            return {
+                'type': 'world',
+                'name': self.name,
+                'objects_count': 0,
+                'vehicle_count': 0,
+                'pedestrian_count': 0,
+                'static_count': 0,
+                'file': None
+            }
+
+        # Count by type
+        vehicle_count = sum(1 for obj in object_labels if obj.label_type == 'vehicle')
+        pedestrian_count = sum(1 for obj in object_labels if obj.label_type == 'pedestrian')
+        static_count = len(object_labels) - vehicle_count - pedestrian_count
 
         os.makedirs(self.save_dir, exist_ok=True)
-        with open('{}/{:0>10d}.pkl'.format(self.save_dir, frame_id), 'wb') as pkl_file:
+        filename = '{:0>10d}.pkl'.format(frame_id)
+        filepath = '{}/{}'.format(self.save_dir, filename)
+
+        with open(filepath, 'wb') as pkl_file:
             pickle.dump(obj=object_labels, file=pkl_file)
+
         if debug:
             logger.debug(f"WorldObjectsLabel: Frame: {frame_id} Total counts: {len(object_labels)}")
-        return True
+
+        return {
+            'type': 'world',
+            'name': self.name,
+            'objects_count': len(object_labels),
+            'vehicle_count': vehicle_count,
+            'pedestrian_count': pedestrian_count,
+            'static_count': static_count,
+            'file': filename
+        }
 
     def get_type_id(self):
         return 'others.world'

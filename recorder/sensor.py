@@ -52,6 +52,18 @@ class Sensor(Actor):
             timestamp: Timestamp
             debug: Whether to print debug info
 
+        Returns:
+            dict: Save information including file path, pose, and sensor-specific data
+                  Format: {
+                      'type': 'sensor',
+                      'name': str,
+                      'sensor_type': str,
+                      'pose': dict,
+                      'timestamp': float,
+                      'file': str,  # relative path
+                      ... # sensor-specific fields
+                  }
+
         Raises:
             TimeoutError: If waiting for sensor data times out
             IOError: If data save fails
@@ -75,8 +87,16 @@ class Sensor(Actor):
                 # Ensure target path exists
                 os.makedirs(self.save_dir, exist_ok=True)
 
-                # Save data
-                success = self.save_to_disk_impl(self.save_dir, sensor_data)
+                # Save data and get additional info
+                save_result = self.save_to_disk_impl(self.save_dir, sensor_data)
+
+                if not isinstance(save_result, dict):
+                    # Backward compatibility: if save_to_disk_impl returns bool
+                    success = save_result
+                    save_info = {}
+                else:
+                    success = save_result.get('success', False)
+                    save_info = save_result
 
                 if not success:
                     error_msg = f"Sensor {self.name} failed to save frame {frame_id}"
@@ -87,8 +107,23 @@ class Sensor(Actor):
                 self.save_pose(frame_id, timestamp)
                 self._first_frame = False
 
+                # Prepare return info
+                pose = self.get_transform()
+                result = {
+                    'type': 'sensor',
+                    'name': self.name,
+                    'sensor_type': self.sensor_type,
+                    'pose': pose.to_dict(),
+                    'timestamp': timestamp
+                }
+
+                # Add sensor-specific info from save_to_disk_impl
+                result.update(save_info)
+
                 if debug:
                     self.print_debug_info(sensor_data.frame, sensor_data)
+
+                return result
 
             except queue.Empty:
                 # Queue timeout

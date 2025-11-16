@@ -178,6 +178,12 @@ class Vehicle(Actor):
                 'gear': vehicle_control.gear}
 
     def save_to_disk(self, frame_id, timestamp, debug=False):
+        """
+        Save vehicle state to disk
+
+        Returns:
+            dict: Vehicle state information
+        """
         os.makedirs(self.save_dir, exist_ok=True)
         fieldnames = ['frame',
                       'timestamp',
@@ -199,19 +205,28 @@ class Vehicle(Actor):
 
         # Save vehicle status to csv file
         try:
+            csv_line = {'frame': frame_id,
+                        'timestamp': timestamp,
+                        'speed': self.get_speed()}
+            csv_line.update(self.get_acceleration().to_dict(prefix='a'))
+            csv_line.update(self.get_velocity().to_dict(prefix='v'))
+            csv_line.update(self.get_transform().to_dict())
+            csv_line.update(self.vehicle_control_to_dict(self.get_control()))
+
             with open('{}/vehicle_status.csv'.format(self.save_dir), 'a', encoding='utf-8') as csv_file:
                 writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
-                csv_line = {'frame': frame_id,
-                            'timestamp': timestamp,
-                            'speed': self.get_speed()}
-                csv_line.update(self.get_acceleration().to_dict(prefix='a'))
-                csv_line.update(self.get_velocity().to_dict(prefix='v'))
-                csv_line.update(self.get_transform().to_dict())
-                csv_line.update(self.vehicle_control_to_dict(self.get_control()))
                 writer.writerow(csv_line)
 
             if debug:
                 logger.debug(f"Vehicle status recorded: uid={self.uid} name={self.name}")
+
+            # Prepare return info
+            return {
+                'type': 'vehicle',
+                'name': self.name,
+                'vehicle_state': csv_line
+            }
+
         except IOError as e:
             logger.error(f"Failed to write vehicle status to {self.save_dir}: {e}")
             raise

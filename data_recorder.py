@@ -9,6 +9,7 @@ import carla
 from param import *
 from config.config_manager import ConfigManager, ConfigValidationError
 from recorder.actor_tree import ActorTree
+from recorder.index_manager import IndexManager
 from core.transform import Transform, Location, Rotation
 from core.transform import transform_to_carla_transform
 from core.logger import configure_global_logging, get_logger
@@ -31,6 +32,7 @@ class DataRecorder:
         self.record_name = None
         self.base_save_dir = None
         self.config = None
+        self.index_manager = None  # Will be initialized after config is loaded
         self.frame_total = -1
         self.frame_step = 1
         self.interrupted = False
@@ -271,6 +273,14 @@ class DataRecorder:
         self.logger.info(f"  Actors: {len(self.actor_tree.node_list)} nodes")
         self.logger.info("=" * 60)
 
+        # Initialize IndexManager after all actors are created
+        self.logger.info("Initializing IndexManager...")
+        self.index_manager = IndexManager(
+            base_save_dir=self.base_save_dir,
+            config=config
+        )
+        self.logger.info("✓ IndexManager initialized")
+
     def start_record(self, config):
         """
         Start recording with the given configuration
@@ -314,7 +324,11 @@ class DataRecorder:
                     save_s = time.time()
                     try:
                         # Use relative_frame as the saved frame_id
-                        self.actor_tree.tick_data_saving(relative_frame, timestamp)
+                        actors_info = self.actor_tree.tick_data_saving(relative_frame, timestamp)
+
+                        # Collect frame information for indexing
+                        self.index_manager.collect_frame_info(relative_frame, timestamp, actors_info)
+
                         save_cost = time.time() - save_s
                         self.logger.info(f"Data saved (frame {relative_frame}), cost {save_cost:.3f}s")
                     except (RuntimeError, TimeoutError) as e:
@@ -347,6 +361,16 @@ class DataRecorder:
             self.logger.exception(f"Unexpected error during recording: {e}")
         finally:
             self.logger.info("Cleaning up resources...")
+
+            # Finalize index files
+            if self.index_manager:
+                try:
+                    self.logger.info("Finalizing index files...")
+                    self.index_manager.finalize()
+                    self.logger.info("✓ Index files finalized")
+                except Exception as e:
+                    self.logger.error(f"Failed to finalize index files: {e}")
+
             self.destroy()
             self.logger.info("Reloading world...")
             self.carla_client.reload_world()
