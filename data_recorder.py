@@ -192,7 +192,7 @@ class DataRecorder:
         self.logger.info("✓ Traffic lights configured")
 
         # ============================================================
-        # Phase 6: Batch Spawn Actors (Using Command Batching)
+        # Phase 6: Batch Spawn Actors (WITHOUT autopilot)
         # ============================================================
         self.logger.info("=" * 60)
         self.logger.info("Phase 6: Spawning actors (batch mode)...")
@@ -202,17 +202,50 @@ class DataRecorder:
         self.record_name = time.strftime("%Y_%m%d_%H%M", time.localtime())
         self.base_save_dir = "{}/record_{}".format(RAW_DATA_PATH, self.record_name)
 
-        # Initialize ActorTree (5-phase batch spawning with immediate autopilot)
-        # Follows CARLA official pattern: spawn vehicles WITH autopilot → spawn sensors
+        # Initialize ActorTree (spawn vehicles and sensors, autopilot not enabled yet)
         self.actor_tree = ActorTree(self.world, config, self.base_save_dir)
         self.actor_tree.init(self.carla_client, tm_port)
-        self.logger.info("✓ All actors spawned with autopilot enabled")
+        self.logger.info("✓ All actors spawned (autopilot not enabled yet)")
 
         # ============================================================
-        # Phase 7: Record Initial Frame ID
+        # Phase 7: Vehicle Stabilization (wait for vehicles to settle)
         # ============================================================
         self.logger.info("=" * 60)
-        self.logger.info("Phase 7: Recording initial frame ID...")
+        self.logger.info("Phase 7: Vehicle stabilization...")
+        self.logger.info("=" * 60)
+
+        # Get stabilization config
+        stabilization_config = config.get('world_settings', {}).get('vehicle_stabilization', {})
+        init_tick_num = stabilization_config.get('init_tick_num', 5)
+
+        self.logger.info(f"Ticking {init_tick_num} times for vehicles to settle on ground...")
+        for i in range(init_tick_num):
+            self.world.tick()
+            if (i + 1) % 2 == 0 or (i + 1) == init_tick_num:  # Log every 2 ticks and last tick
+                self.logger.info(f"  Stabilization tick {i + 1}/{init_tick_num}")
+
+        self.logger.info(f"✓ Stabilization complete after {init_tick_num} ticks")
+
+        # ============================================================
+        # Phase 8: Enable Autopilot (after stabilization)
+        # ============================================================
+        self.logger.info("=" * 60)
+        self.logger.info("Phase 8: Enabling autopilot...")
+        self.logger.info("=" * 60)
+
+        # Enable autopilot for all vehicles
+        autopilot_count = self.actor_tree.enable_autopilot_batch(
+            self.carla_client,
+            tm_port,
+            self.actor_tree.vehicle_nodes_map
+        )
+        self.logger.info(f"✓ Autopilot enabled for {autopilot_count} vehicles")
+
+        # ============================================================
+        # Phase 9: Record Initial Frame ID
+        # ============================================================
+        self.logger.info("=" * 60)
+        self.logger.info("Phase 9: Recording initial frame ID...")
         self.logger.info("=" * 60)
 
         # Get current frame ID as baseline (after stabilization ticks)
@@ -222,7 +255,7 @@ class DataRecorder:
         self.logger.info(f"✓ Initial frame ID recorded: {init_frame_id}")
 
         # ============================================================
-        # Phase 8: Set Recording Parameters
+        # Phase 10: Set Recording Parameters
         # ============================================================
         self.frame_total = config['recording']['frame_total']
         self.frame_step = config['recording']['frame_step']

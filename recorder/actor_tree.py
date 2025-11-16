@@ -24,6 +24,9 @@ class ActorTree(object):
         # Store spawn commands for batch spawning
         self.spawn_commands = []
 
+        # Store vehicle nodes map for later autopilot enabling
+        self.vehicle_nodes_map = {}
+
     def init_legacy(self):
         """Legacy initialization method (kept for reference)"""
         logger.info("Creating actor tree from configuration...")
@@ -38,12 +41,15 @@ class ActorTree(object):
 
     def init(self, client, tm_port):
         """
-        Initialize actor tree using 3-batch spawning (5-phase process)
+        Initialize actor tree (spawn only, autopilot handled by caller)
 
-        Following CARLA official pattern:
-        - Batch 1: Spawn vehicles WITH immediate autopilot
-        - Batch 2: Spawn sensors
-        (No separate stabilization or autopilot batches needed)
+        Phase 1: Prepare spawn commands
+        Phase 2: Batch spawn actors (without autopilot)
+        Phase 3: Build actor nodes
+        Phase 4: Batch spawn sensors
+        Phase 5: Build sensor nodes
+
+        NOTE: Autopilot should be enabled by caller using enable_autopilot_batch()
 
         Args:
             client: carla.Client instance
@@ -52,17 +58,17 @@ class ActorTree(object):
         # Phase 1: Prepare spawn commands
         self.prepare_spawn_commands()
 
-        # Phase 2: Batch spawn actors WITH autopilot (official pattern)
+        # Phase 2: Batch spawn actors (without autopilot)
         actor_responses = self.spawn_actors_batch(client, tm_port)
 
         # Phase 3: Build actor nodes (vehicles)
-        vehicle_nodes_map = self.build_actor_nodes(actor_responses)
+        self.vehicle_nodes_map = self.build_actor_nodes(actor_responses)
 
         # Phase 4: Batch spawn sensors (attached to vehicles)
-        sensor_responses = self.spawn_sensors_batch(client, vehicle_nodes_map)
+        sensor_responses = self.spawn_sensors_batch(client, self.vehicle_nodes_map)
 
         # Phase 5: Build sensor nodes and attach
-        self.build_sensor_nodes(sensor_responses, vehicle_nodes_map)
+        self.build_sensor_nodes(sensor_responses, self.vehicle_nodes_map)
 
     def prepare_spawn_commands(self):
         """
@@ -102,50 +108,39 @@ class ActorTree(object):
 
     def spawn_actors_batch(self, client, tm_port):
         """
-        Phase 2: Batch spawn actors WITH immediate autopilot (CARLA official pattern)
+        Phase 2: Batch spawn actors WITHOUT autopilot
 
         Args:
             client: carla.Client instance
-            tm_port: Traffic Manager port
+            tm_port: Traffic Manager port (kept for interface compatibility)
 
         Returns:
             dict: Spawn result containing responses and command indices
-            {
-                'all_responses': [response1, response2, ...],
-                'vehicle_cmd_indices': [(cmd_idx, batch_idx), ...]
-            }
         """
         from carla import command
 
-        logger.info("Phase 2: Batch spawning actors WITH autopilot (official pattern)...")
+        logger.info("Phase 2: Batch spawning actors (without autopilot)...")
 
         batch = []
         vehicle_cmd_indices = []  # List of (cmd_index, batch_index)
 
-        # Build batch commands for vehicles
+        # Build batch commands for vehicles (without autopilot)
         for cmd_idx, cmd in enumerate(self.spawn_commands):
             if cmd['type'] in ['vehicle', 'other_vehicle']:
                 batch_index = len(batch)
                 vehicle_cmd_indices.append((cmd_idx, batch_index))
 
-                # Official pattern: Spawn + SetAutopilot in ONE command
+                # Only spawn, DO NOT enable autopilot yet
                 spawn_cmd = command.SpawnActor(cmd['blueprint'], cmd['transform'])
-
-                if cmd.get('use_autopilot', False):
-                    # Chain SetAutopilot to spawn command (official pattern)
-                    spawn_cmd = spawn_cmd.then(
-                        command.SetAutopilot(command.FutureActor, True, tm_port)
-                    )
-
                 batch.append(spawn_cmd)
 
         # Execute batch
-        logger.info(f"Spawning {len(batch)} vehicles with autopilot...")
+        logger.info(f"Spawning {len(batch)} vehicles...")
         responses = client.apply_batch_sync(batch, True)  # True = auto tick
 
         # Check responses
         success_count = sum(1 for r in responses if not r.error)
-        logger.info(f"✓ Spawned {success_count}/{len(responses)} vehicles successfully")
+        logger.info(f"✓ Spawned {success_count}/{len(responses)} vehicles")
 
         # Log failures
         for i, response in enumerate(responses):
@@ -329,6 +324,57 @@ class ActorTree(object):
         self.node_list.append(self.root)
         logger.info(f"✓ Built {sensor_count} sensor nodes")
         logger.info(f"✓ Actor tree complete: {len(self.node_list)} total nodes")
+
+    def enable_autopilot_batch(self, client, tm_port, vehicle_nodes_map):
+        """
+        Batch enable autopilot for spawned vehicles
+
+        This method should be called by data_recorder after stabilization ticks.
+
+        Args:
+            client: carla.Client instance
+            tm_port: Traffic Manager port
+            vehicle_nodes_map: Map of {cmd_index: vehicle_node} from build_actor_nodes
+
+        Returns:
+            int: Number of vehicles with autopilot enabled successfully
+        """
+        from carla import command
+
+        logger.info("Batch enabling autopilot for vehicles...")
+
+        autopilot_batch = []
+        autopilot_info = []  # For logging (vehicle_name, actor_id)
+
+        for cmd_idx, vehicle_node in vehicle_nodes_map.items():
+            cmd = self.spawn_commands[cmd_idx]
+
+            if cmd.get('use_autopilot', False):
+                vehicle_actor = vehicle_node.get_actor().carla_actor
+                autopilot_batch.append(
+                    command.SetAutopilot(vehicle_actor, True, tm_port)
+                )
+                vehicle_name = cmd.get('vehicle_name', 'other_vehicle')
+                autopilot_info.append((vehicle_name, vehicle_actor.id))
+
+        if not autopilot_batch:
+            logger.info("No vehicles need autopilot")
+            return 0
+
+        logger.info(f"Enabling autopilot for {len(autopilot_batch)} vehicles...")
+        responses = client.apply_batch_sync(autopilot_batch, True)
+
+        # Check results
+        success_count = sum(1 for r in responses if not r.error)
+        logger.info(f"✓ Enabled autopilot for {success_count}/{len(autopilot_batch)} vehicles")
+
+        # Log failures
+        for i, response in enumerate(responses):
+            if response.error:
+                vehicle_name, actor_id = autopilot_info[i]
+                logger.error(f"Failed to enable autopilot for {vehicle_name} (ID {actor_id}): {response.error}")
+
+        return success_count
 
     def destroy(self):
         """Cleanup resources including thread pool and actors"""
