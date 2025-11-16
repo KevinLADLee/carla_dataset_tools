@@ -38,13 +38,12 @@ class OtherVehicle(Actor):
         return self.save_dir
 
     def control_step(self):
-        # TODO: Migration with agents.behavior_agent
-        self.carla_actor.set_autopilot()
-        # if not self.auto_pilot:
-        #     self.carla_actor.set_autopilot()
-        #     self.auto_pilot = True
-        # else:
-        #     return
+        """
+        Control step for other vehicles.
+        Autopilot已在batch spawn时通过SetAutopilot命令设置，
+        Traffic Manager自动控制，无需手动操作。
+        """
+        pass
 
 
 class Vehicle(Actor):
@@ -231,5 +230,4 @@ class Vehicle(Actor):
             control = self.vehicle_agent.run_step()
             self.carla_actor.apply_control(control)
         else:
-            # Using default autopilot
-            self.carla_actor.set_autopilot()
+            pass
