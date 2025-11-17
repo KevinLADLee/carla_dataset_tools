@@ -48,9 +48,21 @@ class Sensor(Actor):
         Save sensor data to disk with timeout protection
 
         Args:
-            frame_id: Target frame ID
+            frame_id: Absolute CARLA frame ID (for synchronization and file naming)
             timestamp: Timestamp
             debug: Whether to print debug info
+
+        Returns:
+            dict: Save information including file path, pose, and sensor-specific data
+                  Format: {
+                      'type': 'sensor',
+                      'name': str,
+                      'sensor_type': str,
+                      'pose': dict,
+                      'timestamp': float,
+                      'file': str,  # relative path
+                      ... # sensor-specific fields
+                  }
 
         Raises:
             TimeoutError: If waiting for sensor data times out
@@ -75,8 +87,16 @@ class Sensor(Actor):
                 # Ensure target path exists
                 os.makedirs(self.save_dir, exist_ok=True)
 
-                # Save data
-                success = self.save_to_disk_impl(self.save_dir, sensor_data)
+                # Save data and get additional info (pass sensor_data for frame naming)
+                save_result = self.save_to_disk_impl(self.save_dir, sensor_data)
+
+                if not isinstance(save_result, dict):
+                    # Backward compatibility: if save_to_disk_impl returns bool
+                    success = save_result
+                    save_info = {}
+                else:
+                    success = save_result.get('success', False)
+                    save_info = save_result
 
                 if not success:
                     error_msg = f"Sensor {self.name} failed to save frame {frame_id}"
@@ -87,8 +107,23 @@ class Sensor(Actor):
                 self.save_pose(frame_id, timestamp)
                 self._first_frame = False
 
+                # Prepare return info
+                pose = self.get_transform()
+                result = {
+                    'type': 'sensor',
+                    'name': self.name,
+                    'sensor_type': self.sensor_type,
+                    'pose': pose.to_dict(),
+                    'timestamp': timestamp
+                }
+
+                # Add sensor-specific info from save_to_disk_impl
+                result.update(save_info)
+
                 if debug:
                     self.print_debug_info(sensor_data.frame, sensor_data)
+
+                return result
 
             except queue.Empty:
                 # Queue timeout
@@ -101,6 +136,16 @@ class Sensor(Actor):
                 raise TimeoutError(error_msg)
 
     def save_to_disk_impl(self, save_dir, sensor_data) -> bool:
+        """
+        Save sensor data implementation (to be overridden by subclasses)
+
+        Args:
+            save_dir: Directory to save data
+            sensor_data: Sensor data from CARLA (contains sensor_data.frame for file naming)
+
+        Returns:
+            dict or bool: Save result
+        """
         raise NotImplementedError
 
     def print_debug_info(self, data_frame_id, sensor_data):

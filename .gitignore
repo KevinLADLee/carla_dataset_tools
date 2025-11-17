@@ -1,4 +1,5 @@
 .idea
+.venv
 .vscode
 __pycache__
 recorder/__pycache__
@@ -9,3 +10,18 @@ docs/en/
 docs/zh/
 docs/images/
 routes/*
+logs/
+*.log
+*.pyc
+*.pyo
+*.pyd
+*.swp
+.DS_Store
+env/
+env.bak/
+*.egg-info/
+dist/
+build/
+.ipynb_checkpoints
+*.sqlite3
+*.db

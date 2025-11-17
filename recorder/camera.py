@@ -22,7 +22,17 @@ class CameraBase(Sensor):
         super().__init__(uid, name, base_save_dir, parent, carla_actor)
         self.color_converter = color_converter
 
-    def save_to_disk_impl(self, save_dir, sensor_data) -> bool:
+    def save_to_disk_impl(self, save_dir, sensor_data) -> dict:
+        """
+        Save camera image to disk
+
+        Args:
+            save_dir: Directory to save data
+            sensor_data: Camera sensor data from CARLA (contains sensor_data.frame)
+
+        Returns:
+            dict: {'success': bool, 'file': str, 'camera_info': dict}
+        """
         # Convert to target color template
         if self.color_converter is not None:
             sensor_data.convert(self.color_converter)
@@ -34,15 +44,27 @@ class CameraBase(Sensor):
                                             dtype=np.uint8,
                                             buffer=sensor_data.raw_data)
 
+        # Generate filename using absolute frame ID from sensor_data
+        filename = "{:0>10d}.png".format(sensor_data.frame)
+        filepath = "{}/{}".format(save_dir, filename)
+
         # Save image to [RAW_DATA_PATH]/.../[ID]_[SENSOR_TYPE]/[FRAME_ID].png
-        success = cv.imwrite("{}/{:0>10d}.png".format(save_dir,
-                                                      sensor_data.frame),
-                             carla_image_data_array)
+        success = cv.imwrite(filepath, carla_image_data_array)
 
         if success and self.is_first_frame():
             self.save_camera_info(save_dir)
 
-        return success
+        # Prepare return info
+        result = {
+            'success': success,
+            'file': filename
+        }
+
+        # Add camera info on first frame
+        if self.is_first_frame():
+            result['camera_info'] = self.get_camera_info()
+
+        return result
 
     def save_camera_info(self, save_dir):
         with open('{}/camera_info.csv'.format(save_dir), 'w', encoding='utf-8') as csv_file:

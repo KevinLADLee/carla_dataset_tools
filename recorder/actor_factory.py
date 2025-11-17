@@ -65,9 +65,19 @@ class Node(object):
             self._actor.control_step()
 
     def tick_data_saving(self, frame_id, timestamp):
+        """
+        Save data for this node
+
+        Args:
+            frame_id: Absolute CARLA frame ID
+            timestamp: Timestamp
+
+        Returns:
+            Save information from the actor
+        """
         # Fixed condition: check if node type is one of SENSOR, VEHICLE, or WORLD
         if self.get_node_type() in (NodeType.SENSOR, NodeType.VEHICLE, NodeType.WORLD):
-            self._actor.save_to_disk(frame_id, timestamp, True)
+            return self._actor.save_to_disk(frame_id, timestamp, True)
 
 
 def get_name_from_json(json_info, name_set: set):
@@ -118,11 +128,15 @@ class ActorFactory(object):
         if not config or 'actors' not in config:
             raise RuntimeError("Invalid configuration: missing 'actors' section")
 
+        logger.info("Creating world node...")
         root = self.create_world_node()
 
         # Create actors from config
-        for actor_info in config["actors"]:
+        logger.info(f"Creating {len(config['actors'])} actors...")
+        for idx, actor_info in enumerate(config["actors"]):
             actor_type = str(actor_info["type"])
+            actor_name = actor_info.get("name", f"actor_{idx}")
+            logger.info(f"  [{idx+1}/{len(config['actors'])}] Creating {actor_type} '{actor_name}'...")
             node = Node()
 
             if actor_type.startswith("vehicle"):
@@ -135,8 +149,13 @@ class ActorFactory(object):
             if node is not None:
                 # If actor has sensors, create sensor nodes
                 if "sensors" in actor_info and actor_info["sensors"]:
+                    sensor_count = len(actor_info["sensors"])
+                    logger.info(f"    Creating {sensor_count} sensors for '{actor_name}'...")
                     sensor_name_set = set()
-                    for sensor_info in actor_info["sensors"]:
+                    for sensor_idx, sensor_info in enumerate(actor_info["sensors"]):
+                        sensor_type = sensor_info.get("type", "unknown")
+                        sensor_name = sensor_info.get("name", f"sensor_{sensor_idx}")
+                        logger.debug(f"      [{sensor_idx+1}/{sensor_count}] Creating {sensor_type} '{sensor_name}'...")
                         sensor_node = self.create_sensor_node(
                             sensor_info, node.get_actor(), sensor_name_set
                         )
@@ -144,8 +163,10 @@ class ActorFactory(object):
 
         # Create other/background vehicles
         other_vehicle_info = config.get("other_vehicles", {})
+        logger.info("Creating background traffic vehicles...")
         ov_nodes = self.create_other_vehicles(other_vehicle_info)
         root.get_children().extend(ov_nodes)
+        logger.info(f"✓ Created {len(ov_nodes)} background vehicles")
 
         return root
 
@@ -184,6 +205,10 @@ class ActorFactory(object):
                                  base_save_dir=self.base_save_dir,
                                  carla_actor=carla_actor,
                                  route_config=route_config)
+
+        # Note: In synchronous mode, actors need a world tick before set_autopilot()
+        # Autopilot will be set after initialization in DataRecorder
+
         vehicle_node = Node(vehicle_object, NodeType.VEHICLE)
         return vehicle_node
 
@@ -374,3 +399,250 @@ class ActorFactory(object):
         uid = self._uid_count
         self._uid_count += 1
         return uid
+
+    # ========================================================================
+    # Command Batching Methods (for synchronous initialization)
+    # ========================================================================
+
+    def create_vehicle_spawn_command(self, actor_info):
+        """
+        Create vehicle spawn command (不立即执行spawn)
+
+        Args:
+            actor_info: Vehicle configuration dictionary
+
+        Returns:
+            dict: Spawn command containing all necessary information
+            {
+                'type': 'vehicle',
+                'blueprint': carla.ActorBlueprint,
+                'transform': carla.Transform,
+                'actor_info': dict,
+                'vehicle_name': str,
+                'route_config': dict or None,
+                'use_autopilot': bool,
+                'sensors': [sensor_cmd1, sensor_cmd2, ...]
+            }
+        """
+        vehicle_type = actor_info["type"]
+        vehicle_name = get_name_from_json(actor_info, self.v2x_layer_name_set)
+        spawn_point = actor_info["spawn_point"]
+
+        if type(spawn_point) is int:
+            transform = self.spawn_points[spawn_point]
+        else:
+            transform = create_spawn_point(
+                spawn_point.pop("x", 0.0),
+                spawn_point.pop("y", 0.0),
+                spawn_point.pop("z", 0.0),
+                spawn_point.pop("roll", 0.0),
+                spawn_point.pop("pitch", 0.0),
+                spawn_point.pop("yaw", 0.0)
+            )
+
+        blueprint = self.blueprint_lib.find(vehicle_type)
+
+        # Parse route configuration
+        route_config = None
+        if "route" in actor_info:
+            route_config = self._parse_route_config(actor_info["route"])
+
+        use_autopilot = (route_config is None)
+
+        # Create sensor commands
+        sensor_commands = []
+        if "sensors" in actor_info and actor_info["sensors"]:
+            for sensor_info in actor_info["sensors"]:
+                sensor_cmd = self.create_sensor_spawn_command(sensor_info, vehicle_name)
+                sensor_commands.append(sensor_cmd)
+
+        return {
+            'type': 'vehicle',
+            'blueprint': blueprint,
+            'transform': transform,
+            'actor_info': actor_info,
+            'vehicle_name': vehicle_name,
+            'route_config': route_config,
+            'use_autopilot': use_autopilot,
+            'sensors': sensor_commands
+        }
+
+    def create_sensor_spawn_command(self, sensor_info, parent_vehicle_name):
+        """
+        Create sensor spawn command
+
+        Args:
+            sensor_info: Sensor configuration dictionary
+            parent_vehicle_name: Parent vehicle name (for later association)
+
+        Returns:
+            dict: Sensor spawn command
+        """
+        sensor_type = str(sensor_info.get("type"))
+        sensor_name = sensor_info.get("name", "")
+
+        # Get blueprint
+        blueprint = self.blueprint_lib.find(sensor_type)
+
+        # Set attributes
+        for attr_key, attr_value in sensor_info.items():
+            if attr_key not in ['type', 'name', 'spawn_point']:
+                if blueprint.has_attribute(attr_key):
+                    blueprint.set_attribute(attr_key, str(attr_value))
+
+        # Get relative transform
+        spawn_point = sensor_info["spawn_point"]
+        transform = create_spawn_point(
+            spawn_point.get("x", 0.0),
+            spawn_point.get("y", 0.0),
+            spawn_point.get("z", 0.0),
+            spawn_point.get("roll", 0.0),
+            spawn_point.get("pitch", 0.0),
+            spawn_point.get("yaw", 0.0)
+        )
+
+        return {
+            'type': 'sensor',
+            'sensor_type': sensor_type,
+            'sensor_name': sensor_name,
+            'blueprint': blueprint,
+            'transform': transform,
+            'parent_vehicle_name': parent_vehicle_name,
+            'sensor_info': sensor_info
+        }
+
+    def create_other_vehicle_spawn_commands(self, other_vehicles_info):
+        """
+        Create background vehicle spawn commands (avoid duplicate spawn points)
+
+        Args:
+            other_vehicles_info: Dictionary with 'count' and optional 'spawn_points'
+
+        Returns:
+            list: List of spawn command dictionaries
+        """
+        commands = []
+        blueprints = self.blueprint_lib.filter('vehicle.*')
+
+        # Get spawn points list if specified
+        try:
+            spawn_points = other_vehicles_info.get('spawn_points', [])
+        except (AttributeError, ValueError):
+            spawn_points = []
+
+        # Create commands for vehicles at specific points
+        for spawn_point in spawn_points:
+            bp = random.choice(blueprints)
+            transform = self.spawn_points[spawn_point]
+            commands.append({
+                'type': 'other_vehicle',
+                'blueprint': bp,
+                'transform': transform,
+                'use_autopilot': True
+            })
+
+        # Create commands for random vehicles
+        try:
+            vehicle_count = other_vehicles_info.get('count', 0)
+        except (AttributeError, ValueError):
+            vehicle_count = 0
+
+        if vehicle_count:
+            # Get all available spawn points
+            all_spawn_points = self.world.get_map().get_spawn_points()
+
+            # Limit count to available spawn points (CARLA official pattern)
+            if vehicle_count > len(all_spawn_points):
+                logger.warning(
+                    f"Requested {vehicle_count} other_vehicles, but only "
+                    f"{len(all_spawn_points)} spawn points available. "
+                    f"Limiting to {len(all_spawn_points)}."
+                )
+                vehicle_count = len(all_spawn_points)
+
+            # Shuffle to avoid duplicates (CARLA official pattern)
+            random.shuffle(all_spawn_points)
+
+            # Create commands using shuffled spawn points
+            for i in range(vehicle_count):
+                bp = random.choice(blueprints)
+                transform = all_spawn_points[i]  # No duplicates!
+                commands.append({
+                    'type': 'other_vehicle',
+                    'blueprint': bp,
+                    'transform': transform,
+                    'use_autopilot': True
+                })
+
+        return commands
+
+    def create_sensor_object(self, sensor_cmd, carla_sensor, parent_vehicle):
+        """
+        Create sensor object from command and spawned actor
+
+        Args:
+            sensor_cmd: Sensor spawn command dictionary
+            carla_sensor: Spawned CARLA sensor actor
+            parent_vehicle: Parent vehicle object
+
+        Returns:
+            Sensor object (RgbCamera, Lidar, etc.)
+        """
+        sensor_type = sensor_cmd['sensor_type']
+        sensor_name = sensor_cmd['sensor_name']
+        save_dir = f"{parent_vehicle.save_dir}/{sensor_name}"
+
+        # Create sensor object based on type
+        if sensor_type == "sensor.camera.rgb":
+            sensor_object = RgbCamera(
+                uid=self.generate_uid(),
+                name=sensor_name,
+                base_save_dir=parent_vehicle.save_dir,
+                carla_actor=carla_sensor,
+                parent=parent_vehicle
+            )
+        elif sensor_type == "sensor.camera.semantic_segmentation":
+            sensor_object = SemanticSegmentationCamera(
+                uid=self.generate_uid(),
+                name=sensor_name,
+                base_save_dir=parent_vehicle.save_dir,
+                carla_actor=carla_sensor,
+                parent=parent_vehicle
+            )
+        elif sensor_type == "sensor.camera.depth":
+            sensor_object = DepthCamera(
+                uid=self.generate_uid(),
+                name=sensor_name,
+                base_save_dir=parent_vehicle.save_dir,
+                carla_actor=carla_sensor,
+                parent=parent_vehicle
+            )
+        elif sensor_type == "sensor.lidar.ray_cast":
+            sensor_object = Lidar(
+                uid=self.generate_uid(),
+                name=sensor_name,
+                base_save_dir=parent_vehicle.save_dir,
+                carla_actor=carla_sensor,
+                parent=parent_vehicle
+            )
+        elif sensor_type == "sensor.lidar.ray_cast_semantic":
+            sensor_object = SemanticLidar(
+                uid=self.generate_uid(),
+                name=sensor_name,
+                base_save_dir=parent_vehicle.save_dir,
+                carla_actor=carla_sensor,
+                parent=parent_vehicle
+            )
+        elif sensor_type == "sensor.other.radar":
+            sensor_object = Radar(
+                uid=self.generate_uid(),
+                name=sensor_name,
+                base_save_dir=parent_vehicle.save_dir,
+                carla_actor=carla_sensor,
+                parent=parent_vehicle
+            )
+        else:
+            logger.error(f"Unsupported sensor type: {sensor_type}")
+            raise AttributeError(f"Unsupported sensor type: {sensor_type}")
+
+        return sensor_object

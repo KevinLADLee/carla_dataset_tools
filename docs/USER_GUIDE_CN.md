@@ -504,17 +504,32 @@ python3 tools/viz_lidar.py --type lidar --source raw_data/record_2022_0119_1303/
 raw_data/
 └── record_YYYY_MMDD_HHMM/
     ├── carla_raw_record.log           # CARLA 记录器日志
+    ├── dataset_info.json              # 数据集元数据
+    ├── master_index.csv               # 全局帧索引
     ├── vehicle.tesla.model3_1/
     │   ├── 000001_image_2.png         # RGB 图像
     │   ├── 000001_image_2_semantic.png
     │   ├── 000001_velodyne.npy        # 激光雷达 (Nx4: x,y,z,强度)
     │   ├── 000001_velodyne_semantic.npy
     │   ├── 000001_radar_front.npy
-    │   ├── sensor_data.csv            # 传感器位姿
+    │   ├── sensor_index.csv           # 单车传感器索引
+    │   ├── image_2/
+    │   │   └── poses.csv              # 相机位姿
+    │   ├── velodyne/
+    │   │   └── poses.csv              # 激光雷达位姿
+    │   ├── sensor_data.csv            # [Legacy] 传感器位姿
     │   └── vehicle_data.csv           # 车辆状态
     └── others.world_0/
-        └── 000001_objects.pkl         # 对象标签
+        ├── 000001_objects.pkl         # 对象标签
+        └── objects_index.csv          # 世界对象索引
 ```
+
+**索引文件** (自动生成):
+- `dataset_info.json` - 数据集元数据 (地图、天气、传感器、帧率)
+- `master_index.csv` - 全局帧级索引，带数据可用性标志
+- `sensor_index.csv` - 单车传感器数据索引，带文件路径
+- `objects_index.csv` - 世界对象索引，带对象计数
+- `{sensor_name}/poses.csv` - 单传感器位姿数据 (位置、旋转)
 
 ### 标注数据集结构 (KITTI 格式)
 

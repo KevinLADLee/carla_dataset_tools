@@ -7,8 +7,8 @@
 # ============================================================================
 recording:
   frame_total: 12000        # Total frames to record - 总帧数
-  frame_step: 3             # Save every 3rd frame - 每3帧保存
-  map: Town02               # CARLA map
+  frame_step: 2             # Save every 3rd frame - 每3帧保存
+  map: Town02                # CARLA map
   weather: ClearNoon        # Weather preset (optional): ClearNoon, CloudyNoon, WetNoon, HardRainNoon, etc.
 
 # ============================================================================
@@ -29,8 +29,13 @@ world_settings:
   synchronous_mode: true
   fixed_delta_seconds: 0.1
   substepping: true
-  max_substep_delta_time: 0.01
-  max_substeps: 16
+  max_substep_delta_time: 0.005
+  max_substeps: 20
+
+  # Vehicle stabilization settings - 车辆稳定设置
+  # After spawning, wait for vehicles to settle on ground before enabling autopilot
+  vehicle_stabilization:
+    init_tick_num: 5  
 
 # ============================================================================
 # Traffic Light Settings - 交通灯设置
@@ -161,5 +166,5 @@ actors:
 # Background Traffic - 背景交通
 # ============================================================================
 other_vehicles:
-  count: 10                   # 10 random vehicles - KITTI uses controlled scenarios
+  count: 200                   # 10 random vehicles - KITTI uses controlled scenarios
   spawn_points: []            # Specific vehicles defined in actors section

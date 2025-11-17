@@ -504,17 +504,32 @@ python3 tools/viz_lidar.py --type lidar --source raw_data/record_2022_0119_1303/
 raw_data/
 └── record_YYYY_MMDD_HHMM/
     ├── carla_raw_record.log           # CARLA recorder log
+    ├── dataset_info.json              # Dataset metadata
+    ├── master_index.csv               # Global frame index
     ├── vehicle.tesla.model3_1/
     │   ├── 000001_image_2.png         # RGB images
     │   ├── 000001_image_2_semantic.png
     │   ├── 000001_velodyne.npy        # LiDAR (Nx4: x,y,z,intensity)
     │   ├── 000001_velodyne_semantic.npy
     │   ├── 000001_radar_front.npy
-    │   ├── sensor_data.csv            # Sensor poses
+    │   ├── sensor_index.csv           # Per-actor sensor index
+    │   ├── image_2/
+    │   │   └── poses.csv              # Camera poses
+    │   ├── velodyne/
+    │   │   └── poses.csv              # LiDAR poses
+    │   ├── sensor_data.csv            # [Legacy] Sensor poses
     │   └── vehicle_data.csv           # Vehicle state
     └── others.world_0/
-        └── 000001_objects.pkl         # Object labels
+        ├── 000001_objects.pkl         # Object labels
+        └── objects_index.csv          # World objects index
 ```
+
+**Index Files** (automatically generated):
+- `dataset_info.json` - Dataset metadata (map, weather, sensors, frame rate)
+- `master_index.csv` - Global frame-level index with data availability flags
+- `sensor_index.csv` - Per-vehicle sensor data index with file paths
+- `objects_index.csv` - World objects index with object counts
+- `{sensor_name}/poses.csv` - Per-sensor pose data (transform, rotation)
 
 ### Labeled Dataset Structure (KITTI Format)
 

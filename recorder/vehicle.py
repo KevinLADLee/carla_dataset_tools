@@ -31,20 +31,26 @@ class OtherVehicle(Actor):
         return 'others.other_vehicle'
 
     def save_to_disk(self, frame_id, timestamp, debug=False):
-        # Other vehicle not saving data
+        """
+        Other vehicle not saving data
+
+        Args:
+            frame_id: Absolute CARLA frame ID
+            timestamp: Timestamp
+            debug: Debug flag
+        """
         return
 
     def get_save_dir(self):
         return self.save_dir
 
     def control_step(self):
-        # TODO: Migration with agents.behavior_agent
-        self.carla_actor.set_autopilot()
-        # if not self.auto_pilot:
-        #     self.carla_actor.set_autopilot()
-        #     self.auto_pilot = True
-        # else:
-        #     return
+        """
+        Control step for other vehicles.
+        Autopilot已在batch spawn时通过SetAutopilot命令设置，
+        Traffic Manager自动控制，无需手动操作。
+        """
+        pass
 
 
 class Vehicle(Actor):
@@ -179,6 +185,17 @@ class Vehicle(Actor):
                 'gear': vehicle_control.gear}
 
     def save_to_disk(self, frame_id, timestamp, debug=False):
+        """
+        Save vehicle state to disk
+
+        Args:
+            frame_id: Absolute CARLA frame ID (for file naming)
+            timestamp: Timestamp
+            debug: Debug flag
+
+        Returns:
+            dict: Vehicle state information
+        """
         os.makedirs(self.save_dir, exist_ok=True)
         fieldnames = ['frame',
                       'timestamp',
@@ -200,19 +217,28 @@ class Vehicle(Actor):
 
         # Save vehicle status to csv file
         try:
+            csv_line = {'frame': frame_id,
+                        'timestamp': timestamp,
+                        'speed': self.get_speed()}
+            csv_line.update(self.get_acceleration().to_dict(prefix='a'))
+            csv_line.update(self.get_velocity().to_dict(prefix='v'))
+            csv_line.update(self.get_transform().to_dict())
+            csv_line.update(self.vehicle_control_to_dict(self.get_control()))
+
             with open('{}/vehicle_status.csv'.format(self.save_dir), 'a', encoding='utf-8') as csv_file:
                 writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
-                csv_line = {'frame': frame_id,
-                            'timestamp': timestamp,
-                            'speed': self.get_speed()}
-                csv_line.update(self.get_acceleration().to_dict(prefix='a'))
-                csv_line.update(self.get_velocity().to_dict(prefix='v'))
-                csv_line.update(self.get_transform().to_dict())
-                csv_line.update(self.vehicle_control_to_dict(self.get_control()))
                 writer.writerow(csv_line)
 
             if debug:
                 logger.debug(f"Vehicle status recorded: uid={self.uid} name={self.name}")
+
+            # Prepare return info
+            return {
+                'type': 'vehicle',
+                'name': self.name,
+                'vehicle_state': csv_line
+            }
+
         except IOError as e:
             logger.error(f"Failed to write vehicle status to {self.save_dir}: {e}")
             raise
@@ -231,5 +257,4 @@ class Vehicle(Actor):
             control = self.vehicle_agent.run_step()
             self.carla_actor.apply_control(control)
         else:
-            # Using default autopilot
-            self.carla_actor.set_autopilot()
+            pass

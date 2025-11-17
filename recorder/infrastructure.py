@@ -31,6 +31,14 @@ class Infrastructure(PseudoActor):
         return self.save_dir
 
     def save_to_disk(self, frame_id, timestamp, debug=False):
+        """
+        Save infrastructure status
+
+        Args:
+            frame_id: Absolute CARLA frame ID
+            timestamp: Timestamp
+            debug: Debug flag
+        """
         if debug:
             logger.debug(f"Infrastructure status recorded: uid={self.uid} name={self.name}")
 

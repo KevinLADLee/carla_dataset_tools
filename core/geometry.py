@@ -175,11 +175,15 @@ class BoundingBox:
         self.extent = extent
         self.rotation = rotation
 
-    def to_open3d(self):
+    def to_open3d(self, color=None):
         center = self.location.get_vector()
         rotation = self.rotation.get_rotation_matrix()
         extent = self.extent.get_vector()
-        return o3d.geometry.OrientedBoundingBox(center, rotation, extent)
+        bbox = o3d.geometry.OrientedBoundingBox(center, rotation, extent)
+        if color is None:
+            color = [0.5, 0.5, 0.5]  # 默认灰色
+        bbox.color = color
+        return bbox
 
     def __str__(self):
         return "BoundingBox({}, {})".format(self.location, self.extent.to_str(name="Extent"), self.rotation)
