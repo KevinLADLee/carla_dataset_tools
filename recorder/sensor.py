@@ -48,7 +48,7 @@ class Sensor(Actor):
         Save sensor data to disk with timeout protection
 
         Args:
-            frame_id: Target frame ID
+            frame_id: Absolute CARLA frame ID (for synchronization and file naming)
             timestamp: Timestamp
             debug: Whether to print debug info
 
@@ -87,7 +87,7 @@ class Sensor(Actor):
                 # Ensure target path exists
                 os.makedirs(self.save_dir, exist_ok=True)
 
-                # Save data and get additional info
+                # Save data and get additional info (pass sensor_data for frame naming)
                 save_result = self.save_to_disk_impl(self.save_dir, sensor_data)
 
                 if not isinstance(save_result, dict):
@@ -136,6 +136,16 @@ class Sensor(Actor):
                 raise TimeoutError(error_msg)
 
     def save_to_disk_impl(self, save_dir, sensor_data) -> bool:
+        """
+        Save sensor data implementation (to be overridden by subclasses)
+
+        Args:
+            save_dir: Directory to save data
+            sensor_data: Sensor data from CARLA (contains sensor_data.frame for file naming)
+
+        Returns:
+            dict or bool: Save result
+        """
         raise NotImplementedError
 
     def print_debug_info(self, data_frame_id, sensor_data):

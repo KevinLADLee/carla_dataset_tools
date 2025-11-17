@@ -31,7 +31,14 @@ class OtherVehicle(Actor):
         return 'others.other_vehicle'
 
     def save_to_disk(self, frame_id, timestamp, debug=False):
-        # Other vehicle not saving data
+        """
+        Other vehicle not saving data
+
+        Args:
+            frame_id: Absolute CARLA frame ID
+            timestamp: Timestamp
+            debug: Debug flag
+        """
         return
 
     def get_save_dir(self):
@@ -180,6 +187,11 @@ class Vehicle(Actor):
     def save_to_disk(self, frame_id, timestamp, debug=False):
         """
         Save vehicle state to disk
+
+        Args:
+            frame_id: Absolute CARLA frame ID (for file naming)
+            timestamp: Timestamp
+            debug: Debug flag
 
         Returns:
             dict: Vehicle state information

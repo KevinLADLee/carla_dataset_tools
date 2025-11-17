@@ -23,6 +23,11 @@ class WorldActor(PseudoActor):
         """
         Save world objects to disk
 
+        Args:
+            frame_id: Absolute CARLA frame ID (for file naming)
+            timestamp: Timestamp
+            debug: Debug flag
+
         Returns:
             dict: World objects information including counts by type
         """

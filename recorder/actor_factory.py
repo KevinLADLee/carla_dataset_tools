@@ -65,9 +65,19 @@ class Node(object):
             self._actor.control_step()
 
     def tick_data_saving(self, frame_id, timestamp):
+        """
+        Save data for this node
+
+        Args:
+            frame_id: Absolute CARLA frame ID
+            timestamp: Timestamp
+
+        Returns:
+            Save information from the actor
+        """
         # Fixed condition: check if node type is one of SENSOR, VEHICLE, or WORLD
         if self.get_node_type() in (NodeType.SENSOR, NodeType.VEHICLE, NodeType.WORLD):
-            self._actor.save_to_disk(frame_id, timestamp, True)
+            return self._actor.save_to_disk(frame_id, timestamp, True)
 
 
 def get_name_from_json(json_info, name_set: set):

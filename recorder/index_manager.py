@@ -107,7 +107,7 @@ class IndexManager:
         Collect information for a single frame.
 
         Args:
-            frame_id: Frame ID
+            frame_id: Absolute CARLA frame ID
             timestamp: Simulation timestamp
             actors_info: Dictionary containing save information from all actors
                 Format: {
@@ -155,7 +155,12 @@ class IndexManager:
             for actor_name, actor_info in actors_info.items():
                 actor_type = actor_info.get('type')
 
-                if actor_type == 'vehicle':
+                # Check if this is a vehicle actor (by type or by naming convention)
+                is_vehicle = (actor_type == 'vehicle' or
+                             actor_name.startswith('vehicle_') or
+                             actor_name.startswith('ego'))
+
+                if is_vehicle:
                     self._collect_vehicle_index(frame_id, timestamp, actor_name, actor_info)
                 elif actor_type == 'world':
                     self._collect_world_index(frame_id, timestamp, actor_name, actor_info)
@@ -168,7 +173,15 @@ class IndexManager:
 
     def _collect_vehicle_index(self, frame_id: int, timestamp: float,
                                actor_name: str, actor_info: Dict[str, Any]):
-        """Collect index data for a vehicle and its sensors."""
+        """
+        Collect index data for a vehicle and its sensors.
+
+        Args:
+            frame_id: Absolute CARLA frame ID
+            timestamp: Timestamp
+            actor_name: Vehicle actor name
+            actor_info: Actor information dictionary
+        """
         if actor_name not in self.actor_index_data:
             self.actor_index_data[actor_name] = []
 
@@ -186,24 +199,18 @@ class IndexManager:
             if 'file' in sensor_info:
                 index_entry[f'{prefix}_file'] = sensor_info['file']
 
-            # Add pose
-            if 'pose' in sensor_info:
-                pose = sensor_info['pose']
-                for key, value in pose.items():
-                    index_entry[f'{prefix}_pose_{key}'] = value
+            # Pose data is stored in individual {sensor_name}/poses.csv files
+            # No need to duplicate in sensor_index.csv
 
-            # Add sensor-specific info
+            # Add sensor-specific metadata
             if 'points_count' in sensor_info:
                 index_entry[f'{prefix}_points_count'] = sensor_info['points_count']
             if 'camera_info' in sensor_info:
                 # Camera info is static, only add on first frame
                 pass
 
-        # Add vehicle state
-        if 'vehicle_state' in actor_info:
-            state = actor_info['vehicle_state']
-            for key, value in state.items():
-                index_entry[f'vehicle_{key}'] = value
+        # Vehicle state is stored in vehicle_status.csv
+        # No need to duplicate in sensor_index.csv
 
         self.actor_index_data[actor_name].append(index_entry)
 

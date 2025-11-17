@@ -244,17 +244,24 @@ class DataRecorder:
         self.logger.info(f"✓ Autopilot enabled for {autopilot_count} vehicles")
 
         # ============================================================
-        # Phase 9: Record Initial Frame ID
+        # Phase 8.5: Clear Initialization Sensor Data
         # ============================================================
         self.logger.info("=" * 60)
-        self.logger.info("Phase 9: Recording initial frame ID...")
+        self.logger.info("Phase 8.5: Clearing initialization sensor data...")
         self.logger.info("=" * 60)
 
-        # Get current frame ID as baseline (after stabilization ticks)
-        world_snapshot = self.world.get_snapshot()
-        init_frame_id = world_snapshot.frame
-        self.init_frame_id = init_frame_id  # Store initial frame_id
-        self.logger.info(f"✓ Initial frame ID recorded: {init_frame_id}")
+        # Clear accumulated sensor data from initialization phase
+        # This frees memory and ensures clean state before recording
+        cleared_frames = self.actor_tree.clear_sensor_queues()
+        self.logger.info(f"✓ Cleared {cleared_frames} frames from sensor queues")
+
+        # ============================================================
+        # Phase 9: Ready to Record
+        # ============================================================
+        self.logger.info("=" * 60)
+        self.logger.info("Phase 9: Ready to record data...")
+        self.logger.info("=" * 60)
+        self.logger.info("✓ Initialization complete, starting main recording loop")
 
         # ============================================================
         # Phase 10: Set Recording Parameters
@@ -269,7 +276,6 @@ class DataRecorder:
         self.logger.info(f"  Recording directory: {self.base_save_dir}")
         self.logger.info(f"  Target frames: {self.frame_total}")
         self.logger.info(f"  Frame step: {self.frame_step}")
-        self.logger.info(f"  Initial frame ID: {init_frame_id}")
         self.logger.info(f"  Actors: {len(self.actor_tree.node_list)} nodes")
         self.logger.info("=" * 60)
 
@@ -309,12 +315,8 @@ class DataRecorder:
                 timestamp = world_snapshot.timestamp.elapsed_seconds
                 tick_cost = time.time() - tick_s
 
-                # Calculate relative frame (from initialization complete)
-                relative_frame = frame_id - self.init_frame_id
-
                 self.logger.info(
-                    f"World Tick -> Absolute FrameID: {frame_id}, "
-                    f"Relative Frame: {relative_frame}, "
+                    f"World Tick -> FrameID: {frame_id}, "
                     f"Recorded Frames: {total_frame_count}, "
                     f"Timestamp: {timestamp:.3f}s, Cost: {tick_cost:.3f}s"
                 )
@@ -323,14 +325,18 @@ class DataRecorder:
                 if total_frame_count % self.frame_step == 0:
                     save_s = time.time()
                     try:
-                        # Use relative_frame as the saved frame_id
-                        actors_info = self.actor_tree.tick_data_saving(relative_frame, timestamp)
+                        # Use absolute frame_id (matching dev branch behavior)
+                        actors_info = self.actor_tree.tick_data_saving(
+                            frame_id, timestamp
+                        )
 
                         # Collect frame information for indexing
-                        self.index_manager.collect_frame_info(relative_frame, timestamp, actors_info)
+                        self.index_manager.collect_frame_info(
+                            frame_id, timestamp, actors_info
+                        )
 
                         save_cost = time.time() - save_s
-                        self.logger.info(f"Data saved (frame {relative_frame}), cost {save_cost:.3f}s")
+                        self.logger.info(f"Data saved (frame {frame_id}), cost {save_cost:.3f}s")
                     except (RuntimeError, TimeoutError) as e:
                         # Data save failed or timeout - strict mode: abort immediately
                         self.logger.error(

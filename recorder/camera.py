@@ -26,6 +26,10 @@ class CameraBase(Sensor):
         """
         Save camera image to disk
 
+        Args:
+            save_dir: Directory to save data
+            sensor_data: Camera sensor data from CARLA (contains sensor_data.frame)
+
         Returns:
             dict: {'success': bool, 'file': str, 'camera_info': dict}
         """
@@ -40,7 +44,7 @@ class CameraBase(Sensor):
                                             dtype=np.uint8,
                                             buffer=sensor_data.raw_data)
 
-        # Generate filename
+        # Generate filename using absolute frame ID from sensor_data
         filename = "{:0>10d}.png".format(sensor_data.frame)
         filepath = "{}/{}".format(save_dir, filename)
 

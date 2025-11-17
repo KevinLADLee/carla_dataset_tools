@@ -11,7 +11,17 @@ class Radar(Sensor):
         super().__init__(uid, name, base_save_dir, parent, carla_actor)
 
     def save_to_disk_impl(self, save_dir, sensor_data) -> bool:
-        # Save as a Nx4 numpy array. Each row is a point (velocity, azimuth, altitude, depth)
+        """
+        Save radar data to disk
+
+        Args:
+            save_dir: Directory to save data
+            sensor_data: Radar sensor data from CARLA (contains sensor_data.frame)
+
+        Returns:
+            bool: Success status
+        """
+        # Save as a Nx7 numpy array. Each row is a point (x, y, z, depth, velocity, azimuth, altitude)
         # radar_raw_data = np.frombuffer(sensor_data.raw_data,
         #                                dtype=np.float32)
         # radar_raw_data = np.reshape(
@@ -29,9 +39,8 @@ class Radar(Sensor):
         radar_points = np.asarray(radar_points)
         radar_points.reshape(-1, 7)
 
-        # Save point cloud to [RAW_DATA_PATH]/.../[ID]_[SENSOR_TYPE]/[FRAME_ID].npy
-        np.save("{}/{:0>10d}".format(save_dir,
-                                     sensor_data.frame),
+        # Save point cloud using absolute frame ID from sensor_data
+        np.save("{}/{:0>10d}".format(save_dir, sensor_data.frame),
                 radar_points)
         return True
 

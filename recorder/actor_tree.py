@@ -402,7 +402,7 @@ class ActorTree(object):
         Uses persistent thread pool for efficient parallel processing.
 
         Args:
-            frame_id: Current frame ID
+            frame_id: Absolute CARLA frame ID (for file naming and synchronization)
             timestamp: Current timestamp
 
         Returns:
@@ -487,7 +487,7 @@ class ActorTree(object):
         Safe data saving wrapper that catches exceptions and returns results
 
         Args:
-            frame_id: Frame ID
+            frame_id: Absolute CARLA frame ID
             timestamp: Timestamp
             node: Node to save
 
@@ -557,3 +557,36 @@ class ActorTree(object):
                 if child_node is not None:
                     logger.info(f"|- {child_node.get_actor().name}")
         logger.info("------ Actor Tree END ------")
+
+    def clear_sensor_queues(self) -> int:
+        """
+        Clear accumulated sensor data from initialization phase.
+
+        This removes old sensor data that accumulated during initialization
+        (spawn, stabilization, autopilot enabling) to free memory and
+        ensure clean state before recording starts.
+
+        Returns:
+            int: Total number of frames cleared from all sensor queues
+        """
+        import queue as queue_module
+        from recorder.actor_factory import NodeType
+
+        total_cleared = 0
+        for node in self.node_list:
+            if node.get_node_type() == NodeType.SENSOR:
+                sensor = node._actor  # Get Sensor object
+                cleared = 0
+                # Drain queue using get_nowait (non-blocking)
+                try:
+                    while True:
+                        sensor.queue.get_nowait()
+                        cleared += 1
+                except queue_module.Empty:
+                    pass  # Queue is now empty
+
+                total_cleared += cleared
+                if cleared > 0:
+                    logger.debug(f"Cleared {cleared} frames from sensor {sensor.name}")
+
+        return total_cleared
