@@ -52,7 +52,7 @@ class CameraBase(Sensor):
                                             buffer=sensor_data.raw_data)
 
         # Generate filename using absolute frame ID from sensor_data
-        filename = IMAGE_FRAME_ID_FORMAT.format(sensor_data.frame)
+        filename = "{}.png".format(IMAGE_FRAME_ID_FORMAT.format(sensor_data.frame))
         filepath = "{}/{}".format(save_dir, filename)
 
         # Save image to [RAW_DATA_PATH]/.../[ID]_[SENSOR_TYPE]/[FRAME_ID].png
@@ -178,7 +178,7 @@ class DepthCamera(CameraBase):
                                             buffer=sensor_data.raw_data)
 
         # Generate filename using absolute frame ID from sensor_data
-        filename = IMAGE_FRAME_ID_FORMAT.format(sensor_data.frame)
+        filename = "{}.png".format(IMAGE_FRAME_ID_FORMAT.format(sensor_data.frame))
         filepath = "{}/{}".format(save_dir, filename)
 
         # Save PNG with CARLA's depth encoding preserved
@@ -252,7 +252,7 @@ class OpticalFlowCamera(CameraBase):
         flow_bgra[:, :, 3] = flow_16bit[:, :, 1] & 0xFF         # A - v low
 
         # Generate filename using absolute frame ID from sensor_data
-        filename = IMAGE_FRAME_ID_FORMAT.format(sensor_data.frame)
+        filename = "{}.png".format(IMAGE_FRAME_ID_FORMAT.format(sensor_data.frame))
         filepath = "{}/{}".format(save_dir, filename)
 
         # Save PNG with packed 16-bit optical flow data

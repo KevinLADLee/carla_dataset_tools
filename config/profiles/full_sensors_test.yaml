@@ -106,10 +106,12 @@ actors:
           image_size_y: 1080
           fov: 90.0
           sensor_tick: 0.0
-          refractory_period: 0.001
-          threshold_low: 0.1
-          threshold_high: 0.2
-          sigma_threshold: 0.03
+          positive_threshold: 0.1      
+          negative_threshold: 0.2     
+          sigma_positive_threshold: 0.03  
+          refractory_period_ns: 1000000  
+          use_log: true                
+          log_eps: 0.001               
         spawn_point:
           x: 1.5
           y: 0.0
