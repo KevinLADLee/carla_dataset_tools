@@ -11,6 +11,12 @@ from recorder.sensor import Sensor
 from core.geometry import Transform, Rotation
 from core.transform import carla_transform_to_transform
 
+# Camera constants
+CARLA_IMAGE_CHANNELS = 4  # BGRA format: Blue, Green, Red, Alpha
+CARLA_IMAGE_DTYPE = 'uint8'  # Standard CARLA image data type
+IMAGE_FRAME_ID_FORMAT = '{:0>10d}'  # Format for frame ID in filenames
+DEGREES_TO_RADIANS = math.pi / 180.0  # Conversion factor from degrees to radians
+
 
 class CameraBase(Sensor):
     def __init__(self,
@@ -41,12 +47,12 @@ class CameraBase(Sensor):
         # Convert raw data to numpy array, image type is 'bgra8'
         carla_image_data_array = np.ndarray(shape=(sensor_data.height,
                                                    sensor_data.width,
-                                                   4),
-                                            dtype=np.uint8,
+                                                   CARLA_IMAGE_CHANNELS),
+                                            dtype=CARLA_IMAGE_DTYPE,
                                             buffer=sensor_data.raw_data)
 
         # Generate filename using absolute frame ID from sensor_data
-        filename = "{:0>10d}.png".format(sensor_data.frame)
+        filename = IMAGE_FRAME_ID_FORMAT.format(sensor_data.frame)
         filepath = "{}/{}".format(save_dir, filename)
 
         # Save image to [RAW_DATA_PATH]/.../[ID]_[SENSOR_TYPE]/[FRAME_ID].png
@@ -101,8 +107,8 @@ class CameraBase(Sensor):
     def get_camera_info(self):
         camera_width = int(self.carla_actor.attributes['image_size_x'])
         camera_height = int(self.carla_actor.attributes['image_size_y'])
-        fx = camera_width / (
-                2.0 * math.tan(float(self.carla_actor.attributes['fov']) * math.pi / 360.0))
+        fov_rad = float(self.carla_actor.attributes['fov']) * DEGREES_TO_RADIANS
+        fx = camera_width / (2.0 * math.tan(fov_rad))
         return {
             'width': camera_width,
             'height': camera_height,
@@ -167,12 +173,12 @@ class DepthCamera(CameraBase):
         # Save directly as PNG - this preserves the full depth encoding from CARLA
         carla_image_data_array = np.ndarray(shape=(sensor_data.height,
                                                    sensor_data.width,
-                                                   4),
-                                            dtype=np.uint8,
+                                                   CARLA_IMAGE_CHANNELS),
+                                            dtype=CARLA_IMAGE_DTYPE,
                                             buffer=sensor_data.raw_data)
 
         # Generate filename using absolute frame ID from sensor_data
-        filename = "{:0>10d}.png".format(sensor_data.frame)
+        filename = IMAGE_FRAME_ID_FORMAT.format(sensor_data.frame)
         filepath = "{}/{}".format(save_dir, filename)
 
         # Save PNG with CARLA's depth encoding preserved
@@ -202,6 +208,12 @@ class InstanceSegmentationCamera(CameraBase):
 
 
 class OpticalFlowCamera(CameraBase):
+    # Optical flow constants
+    MIN_RANGE = -2.0  # Minimum optical flow value
+    MAX_RANGE = 2.0  # Maximum optical flow value
+    RANGE_SPAN = MAX_RANGE - MIN_RANGE  # Total range span (4.0)
+    UINT16_MAX = 65535.0  # Maximum value for 16-bit unsigned integer
+
     def __init__(self, uid, name: str, base_save_dir: str, parent, carla_actor: carla.Sensor,
                  color_converter: carla.ColorConverter = None):
         super().__init__(uid, name, base_save_dir, parent, carla_actor, color_converter)
@@ -223,8 +235,9 @@ class OpticalFlowCamera(CameraBase):
         flow_data = flow_data.reshape((sensor_data.height, sensor_data.width, 2))
 
         # Convert flow range [-2, 2] to 16-bit PNG for precision preservation
-        # Formula: uint16_value = ((flow_value + 2) / 4) * 65535
-        flow_16bit = ((flow_data + 2.0) / 4.0 * 65535.0).astype(np.uint16)
+        # Using formula: uint16_value = ((flow_value + 2) / 4) * 65535
+        flow_16bit = ((flow_data - self.MIN_RANGE) / self.RANGE_SPAN *
+                      self.UINT16_MAX).astype(np.uint16)
 
         # Create BGRA image (2 channels of 16-bit flow data stored in 4 channels of 8-bit)
         # Pack u and v components into BGRA format
@@ -239,7 +252,7 @@ class OpticalFlowCamera(CameraBase):
         flow_bgra[:, :, 3] = flow_16bit[:, :, 1] & 0xFF         # A - v low
 
         # Generate filename using absolute frame ID from sensor_data
-        filename = "{:0>10d}.png".format(sensor_data.frame)
+        filename = IMAGE_FRAME_ID_FORMAT.format(sensor_data.frame)
         filepath = "{}/{}".format(save_dir, filename)
 
         # Save PNG with packed 16-bit optical flow data

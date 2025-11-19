@@ -9,11 +9,12 @@ import queue
 import carla
 
 from recorder.actor import Actor
+from core.csv_utils import safe_append_to_csv
 
-# 获取logger实例
+# Get logger instance
 logger = logging.getLogger(__name__)
 
-# 传感器队列超时时间（秒）
+# Sensor queue timeout in seconds
 SENSOR_QUEUE_TIMEOUT = 10.0
 
 
@@ -161,20 +162,32 @@ class Sensor(Actor):
         return self._first_frame
 
     def save_pose(self, frame_id, timestamp):
+        """
+        Save sensor pose data to CSV file using unified CSV utility.
+
+        Args:
+            frame_id: CARLA frame identifier
+            timestamp: Simulation timestamp
+        """
         trans = self.get_transform()
         pose_dict = trans.to_dict()
         pose_dict.update({'frame': frame_id,
                           'timestamp': timestamp})
 
         csv_path = '{}/poses.csv'.format(self.save_dir)
-        if self.is_first_frame():
-            with open(csv_path, 'w', encoding='utf-8') as csv_file:
-                writer = csv.DictWriter(csv_file, fieldnames=self.csv_fieldnames)
-                writer.writeheader()
 
-        with open(csv_path, 'a', encoding='utf-8') as csv_file:
-            writer = csv.DictWriter(csv_file, fieldnames=self.csv_fieldnames)
-            writer.writerow(pose_dict)
+        # Use unified CSV utility with error handling
+        result = safe_append_to_csv(
+            csv_path=csv_path,
+            fieldnames=self.csv_fieldnames,
+            data=pose_dict,
+            is_first_write=self.is_first_frame(),
+            logger_name=f"{self.__class__.__name__}_{self.uid}"
+        )
+
+        # Log any errors but continue execution
+        if not result['success']:
+            logger.warning(f"Failed to save pose data: {result.get('error', 'Unknown error')}")
 
     def save_sensor_metadata(self, save_dir, additional_metadata=None):
         """

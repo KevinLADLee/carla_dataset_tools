@@ -1,16 +1,15 @@
 #!/usr/bin/python3
 
-import csv
-import os
 import carla
 
 from recorder.sensor import Sensor
+from core.csv_utils import safe_append_to_csv
 
 
 class IMU(Sensor):
     def __init__(self, uid, name: str, base_save_dir: str, parent, carla_actor: carla.Sensor):
         super().__init__(uid, name, base_save_dir, parent, carla_actor)
-        # IMU uses separate CSV for data, so we don't override poses
+        # IMU uses separate CSV for 6-axis data with frame and timestamp
         self.imu_fieldnames = ['frame', 'timestamp', 'acc_x', 'acc_y', 'acc_z', 'gyro_x', 'gyro_y', 'gyro_z', 'compass']
         self._first_frame = True
 
@@ -39,26 +38,26 @@ class IMU(Sensor):
             'compass': sensor_data.compass
         }
 
-        # Append to single CSV file (similar to poses.csv approach)
+        # Append to single CSV file using unified CSV utility
         csv_path = '{}/imu_data.csv'.format(save_dir)
 
-        if self._first_frame:
-            with open(csv_path, 'w', newline='', encoding='utf-8') as csv_file:
-                writer = csv.DictWriter(csv_file, fieldnames=self.imu_fieldnames)
-                writer.writeheader()
-                writer.writerow(data)
+        result = safe_append_to_csv(
+            csv_path=csv_path,
+            fieldnames=self.imu_fieldnames,
+            data=data,
+            is_first_write=self._first_frame,
+            logger_name=f"{self.__class__.__name__}_{self.uid}"
+        )
+
+        # Save metadata on first frame
+        if result['success'] and self._first_frame:
             self.save_imu_metadata(save_dir)
             self._first_frame = False
-        else:
-            with open(csv_path, 'a', newline='', encoding='utf-8') as csv_file:
-                writer = csv.DictWriter(csv_file, fieldnames=self.imu_fieldnames)
-                writer.writerow(data)
 
-        return {
-            'success': True,
-            'file': 'imu_data.csv',
-            'data': data
-        }
+        # Include sensor data in result
+        result['data'] = data
+
+        return result
 
     def save_imu_metadata(self, save_dir):
         """Save IMU sensor metadata"""
