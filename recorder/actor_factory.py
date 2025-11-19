@@ -14,9 +14,12 @@ from core.geometry import *
 from core.transform import transform_to_carla_transform
 
 from recorder.actor import Actor, PseudoActor
-from recorder.camera import RgbCamera, DepthCamera, SemanticSegmentationCamera
+from recorder.camera import RgbCamera, DepthCamera, SemanticSegmentationCamera, InstanceSegmentationCamera, OpticalFlowCamera
 from recorder.lidar import Lidar, SemanticLidar
 from recorder.radar import Radar
+from recorder.dvs_camera import DVSCamera
+from recorder.imu import IMU
+from recorder.gnss import GNSS
 from recorder.vehicle import Vehicle, OtherVehicle
 from recorder.infrastructure import Infrastructure
 from recorder.world import WorldActor
@@ -389,6 +392,36 @@ class ActorFactory(object):
                                  base_save_dir=parent_actor.get_save_dir(),
                                  carla_actor=carla_actor,
                                  parent=parent_actor)
+        elif sensor_type == 'sensor.camera.instance_segmentation':
+            sensor_actor = InstanceSegmentationCamera(uid=self.generate_uid(),
+                                                      name=sensor_name,
+                                                      base_save_dir=parent_actor.get_save_dir(),
+                                                      carla_actor=carla_actor,
+                                                      parent=parent_actor)
+        elif sensor_type == 'sensor.camera.dvs':
+            sensor_actor = DVSCamera(uid=self.generate_uid(),
+                                    name=sensor_name,
+                                    base_save_dir=parent_actor.get_save_dir(),
+                                    carla_actor=carla_actor,
+                                    parent=parent_actor)
+        elif sensor_type == 'sensor.other.imu':
+            sensor_actor = IMU(uid=self.generate_uid(),
+                              name=sensor_name,
+                              base_save_dir=parent_actor.get_save_dir(),
+                              carla_actor=carla_actor,
+                              parent=parent_actor)
+        elif sensor_type == 'sensor.other.gnss':
+            sensor_actor = GNSS(uid=self.generate_uid(),
+                               name=sensor_name,
+                               base_save_dir=parent_actor.get_save_dir(),
+                               carla_actor=carla_actor,
+                               parent=parent_actor)
+        elif sensor_type == 'sensor.camera.optical_flow':
+            sensor_actor = OpticalFlowCamera(uid=self.generate_uid(),
+                                             name=sensor_name,
+                                             base_save_dir=parent_actor.get_save_dir(),
+                                             carla_actor=carla_actor,
+                                             parent=parent_actor)
         else:
             logger.error(f"Unsupported sensor type: {sensor_type}")
             raise AttributeError(f"Unsupported sensor type: {sensor_type}")
@@ -635,6 +668,46 @@ class ActorFactory(object):
             )
         elif sensor_type == "sensor.other.radar":
             sensor_object = Radar(
+                uid=self.generate_uid(),
+                name=sensor_name,
+                base_save_dir=parent_vehicle.save_dir,
+                carla_actor=carla_sensor,
+                parent=parent_vehicle
+            )
+        elif sensor_type == "sensor.camera.instance_segmentation":
+            sensor_object = InstanceSegmentationCamera(
+                uid=self.generate_uid(),
+                name=sensor_name,
+                base_save_dir=parent_vehicle.save_dir,
+                carla_actor=carla_sensor,
+                parent=parent_vehicle
+            )
+        elif sensor_type == "sensor.camera.dvs":
+            sensor_object = DVSCamera(
+                uid=self.generate_uid(),
+                name=sensor_name,
+                base_save_dir=parent_vehicle.save_dir,
+                carla_actor=carla_sensor,
+                parent=parent_vehicle
+            )
+        elif sensor_type == "sensor.other.imu":
+            sensor_object = IMU(
+                uid=self.generate_uid(),
+                name=sensor_name,
+                base_save_dir=parent_vehicle.save_dir,
+                carla_actor=carla_sensor,
+                parent=parent_vehicle
+            )
+        elif sensor_type == "sensor.other.gnss":
+            sensor_object = GNSS(
+                uid=self.generate_uid(),
+                name=sensor_name,
+                base_save_dir=parent_vehicle.save_dir,
+                carla_actor=carla_sensor,
+                parent=parent_vehicle
+            )
+        elif sensor_type == "sensor.camera.optical_flow":
+            sensor_object = OpticalFlowCamera(
                 uid=self.generate_uid(),
                 name=sensor_name,
                 base_save_dir=parent_vehicle.save_dir,

@@ -175,3 +175,54 @@ class Sensor(Actor):
         with open(csv_path, 'a', encoding='utf-8') as csv_file:
             writer = csv.DictWriter(csv_file, fieldnames=self.csv_fieldnames)
             writer.writerow(pose_dict)
+
+    def save_sensor_metadata(self, save_dir, additional_metadata=None):
+        """
+        Save generic sensor metadata file
+
+        Args:
+            save_dir: Directory to save metadata
+            additional_metadata: Dictionary with additional sensor-specific metadata
+        """
+        import json
+
+        # Get parent transform for relative positioning
+        parent_transform = None
+        if hasattr(self.parent, 'get_transform'):
+            parent_transform = self.parent.get_transform().to_dict()
+
+        # Base metadata structure
+        metadata = {
+            'sensor_type': self.sensor_type,
+            'sensor_id': self.name,
+            'parent_actor': getattr(self.parent, 'name', 'unknown'),
+            'carla_blueprint': {
+                'type': self.sensor_type,
+                'attributes': dict(self.carla_actor.attributes)
+            },
+            'transform': {
+                'relative_to_parent': self.get_transform().to_dict()
+            },
+            'recording_info': {
+                'first_frame': None,  # To be filled by subclasses
+                'total_frames': None   # To be filled by subclasses
+            },
+            'data_structure': {
+                'directory': save_dir,
+                'poses_file': 'poses.csv',
+                'metadata_file': 'sensor_metadata.json'
+            }
+        }
+
+        # Add parent transform if available
+        if parent_transform:
+            metadata['parent_transform'] = parent_transform
+
+        # Add sensor-specific metadata
+        if additional_metadata:
+            metadata.update(additional_metadata)
+
+        # Save metadata file
+        metadata_path = '{}/sensor_metadata.json'.format(save_dir)
+        with open(metadata_path, 'w', encoding='utf-8') as f:
+            json.dump(metadata, f, indent=2)

@@ -25,3 +25,4 @@ build/
 .ipynb_checkpoints
 *.sqlite3
 *.db
+CLAUDE.md
