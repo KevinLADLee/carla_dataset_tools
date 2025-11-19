@@ -107,8 +107,15 @@ class CameraBase(Sensor):
     def get_camera_info(self):
         camera_width = int(self.carla_actor.attributes['image_size_x'])
         camera_height = int(self.carla_actor.attributes['image_size_y'])
-        fov_rad = float(self.carla_actor.attributes['fov']) * DEGREES_TO_RADIANS
-        fx = camera_width / (2.0 * math.tan(fov_rad))
+
+        # CARLA camera calibration formula
+        # Reference: https://carla.readthedocs.io/en/0.9.16/tuto_G_bounding_boxes/
+        # focal = w / (2.0 * tan(fov / 2))
+        # Note: FOV is the FULL field of view angle, we need the HALF-angle for tan()
+        fov_deg = float(self.carla_actor.attributes['fov'])
+        fov_half_rad = math.radians(fov_deg / 2.0)  # Convert half FOV to radians
+        fx = camera_width / (2.0 * math.tan(fov_half_rad))
+
         return {
             'width': camera_width,
             'height': camera_height,

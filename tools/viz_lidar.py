@@ -12,6 +12,7 @@ from typing import Optional, Tuple
 import numpy as np
 import open3d as o3d
 from matplotlib import pyplot as plt
+from plyfile import PlyData
 
 sys.path.append(Path(__file__).parent.parent.as_posix())
 from param import ROOT_PATH
@@ -83,6 +84,60 @@ def load_kitti_bin(bin_path: str) -> np.ndarray:
         return points
     except Exception as e:
         raise RuntimeError(f"Failed to load KITTI bin file {bin_path}: {e}")
+
+
+def load_ply_lidar(ply_path: str) -> np.ndarray:
+    """Load PLY format LIDAR point cloud.
+
+    Args:
+        ply_path: Path to .ply file
+
+    Returns:
+        Numpy array compatible with existing code.
+        For regular lidar: (N, 4) with columns [x, y, z, intensity]
+        For semantic lidar: structured array with fields [x, y, z, CosAngle, ObjIdx, ObjTag]
+    """
+    try:
+        ply_data = PlyData.read(ply_path)
+        vertex = ply_data['vertex']
+        vertex_props = [prop.name for prop in vertex.properties]
+
+        if 'intensity' in vertex_props:
+            # Regular LiDAR format
+            return np.column_stack([
+                vertex['x'],
+                vertex['y'],
+                vertex['z'],
+                vertex['intensity']
+            ]).astype(np.float32)
+        elif 'cos_angle' in vertex_props:
+            # Semantic LiDAR format - return structured array
+            n_points = len(vertex)
+            dtype = [
+                ('x', np.float32),
+                ('y', np.float32),
+                ('z', np.float32),
+                ('CosAngle', np.float32),
+                ('ObjIdx', np.uint32),
+                ('ObjTag', np.uint32)
+            ]
+            structured = np.zeros(n_points, dtype=dtype)
+            structured['x'] = vertex['x']
+            structured['y'] = vertex['y']
+            structured['z'] = vertex['z']
+            structured['CosAngle'] = vertex['cos_angle']
+            structured['ObjIdx'] = vertex['obj_idx']
+            structured['ObjTag'] = vertex['obj_tag']
+            return structured
+        else:
+            # Fallback: return only xyz if no known format
+            return np.column_stack([
+                vertex['x'],
+                vertex['y'],
+                vertex['z']
+            ]).astype(np.float32)
+    except Exception as e:
+        raise RuntimeError(f"Failed to load PLY file {ply_path}: {e}")
 
 
 def load_kitti_calib(calib_path: str) -> dict:
@@ -236,10 +291,10 @@ class LidarVisualizer:
     def visualize(self):
         """Visualize point cloud data with optional 3D bounding boxes."""
         # Single file mode
-        if self.source.endswith('.npy') or self.source.endswith('.bin'):
+        if self.source.endswith('.ply') or self.source.endswith('.bin'):
             try:
-                if self.source.endswith('.npy'):
-                    raw_pcd = np.load(self.source)
+                if self.source.endswith('.ply'):
+                    raw_pcd = load_ply_lidar(self.source)
                 else:  # .bin file
                     raw_pcd = load_kitti_bin(self.source)
 
@@ -268,7 +323,7 @@ class LidarVisualizer:
             if self.pointcloud_type == PointcloudType.KITTI:
                 files = sorted(glob.glob(f"{self.source}/*.bin"))
             else:
-                files = sorted(glob.glob(f"{self.source}/*.npy"))
+                files = sorted(glob.glob(f"{self.source}/*.ply"))
 
             if not files:
                 print(f"No point cloud files found in {self.source}")
@@ -284,8 +339,8 @@ class LidarVisualizer:
             for file in files:
                 try:
                     # Load point cloud
-                    if file.endswith('.npy'):
-                        raw_pcd = np.load(file)
+                    if file.endswith('.ply'):
+                        raw_pcd = load_ply_lidar(file)
                     else:  # .bin file
                         raw_pcd = load_kitti_bin(file)
 
@@ -455,7 +510,7 @@ def main():
         epilog="""
 Examples:
   # Visualize raw CARLA lidar data (single file)
-  python visualize_lidar.py --type lidar --source raw_data/record_XXX/vehicle/000001_lidar.npy
+  python visualize_lidar.py --type lidar --source raw_data/record_XXX/vehicle/000001_lidar.ply
 
   # Visualize KITTI format with 3D bboxes (single file)
   python visualize_lidar.py --type kitti --source dataset/record_XXX/vehicle/kitti_object/training/velodyne/000001.bin
@@ -474,7 +529,7 @@ Examples:
         '--source',
         type=str,
         required=True,
-        help='File (.npy/.bin) or folder containing point clouds to visualize'
+        help='File (.ply/.bin) or folder containing point clouds to visualize'
     )
 
     args = argparser.parse_args()
