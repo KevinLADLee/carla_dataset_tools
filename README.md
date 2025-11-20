@@ -24,6 +24,7 @@ Data collection and labeling tools for [CARLA Simulator](https://carla.org/). Th
 - ✅ **Synchronized Recording**: Synchronized multi-vehicle and multi-sensor data collection
 - ✅ **Visualization Tools**: Built-in point cloud and data visualization utilities
 - ✅ **Autopilot Integration**: Automatic vehicle control using CARLA's traffic manager
+- 🔬 **Sionna Integration** (Experimental): Radio map generation for wireless propagation simulation
 
 ---
 
@@ -146,7 +147,11 @@ carla_dataset_tools/
 ├── recorder/                    # Core recording modules
 ├── routes/                      # Vehicle route definitions (YAML + PKL)
 ├── core/                        # Core shared modules (geometry, transform, logger)
-├── tools/                       # CLI utility scripts (editor_route, viz_lidar, etc.)
+├── tools/                       # CLI utility scripts
+│   ├── sionna_integration/      # 🔬 Radio map generation tools (Experimental)
+│   ├── editor_route.py          # Route editor
+│   ├── viz_lidar.py             # LiDAR visualization
+│   └── ...                      # Other utilities
 └── data_recorder.py             # Main recording script
 ```
 

@@ -1,0 +1,186 @@
+# CARLA Dataset Recording Configuration - V2X Test Profile
+# Compatible with CARLA 0.9.16
+# This configuration tests V2X (Vehicle-to-Everything) communication sensors
+
+# ============================================================================
+# Recording Settings
+# ============================================================================
+recording:
+  frame_total: 500            # Short test run
+  frame_step: 1               # Save every frame for V2X analysis
+  map: Town02                 # Urban environment for V2X testing
+  weather: ClearNoon
+
+# ============================================================================
+# Spectator Camera Position
+# ============================================================================
+spectator:
+  x: 100.0
+  y: -150.0
+  z: 150.0
+  roll: 0.0
+  pitch: 60.0
+  yaw: -90.0
+
+# ============================================================================
+# World Physics Settings
+# ============================================================================
+world_settings:
+  synchronous_mode: true
+  fixed_delta_seconds: 0.1
+  substepping: true
+  max_substep_delta_time: 0.01
+  max_substeps: 16
+
+# ============================================================================
+# Traffic Light Settings
+# ============================================================================
+traffic_lights:
+  red_time: 2.0
+  green_time: 2.0
+  yellow_time: 0.01
+
+# ============================================================================
+# Sensor Configuration Templates
+# ============================================================================
+sensor_templates:
+  # V2X CAM Sensor template
+  v2x_cam_template: &v2x_cam
+    type: sensor.other.v2x
+    # Wireless channel parameters
+    transmit_power: 21.5          # dBm - Transmission power
+    receiver_sensitivity: -99.0   # dBm - Minimum receivable power
+    frequency_ghz: 5.9            # GHz - Operating frequency (ITS-G5)
+    filter_distance: 500          # meters - Maximum reception range
+    # Path loss model
+    path_loss_model: geometric    # [geometric, winner]
+    scenario: urban               # [urban, rural, highway]
+    combined_antenna_gain: 10.0   # dBi
+    d_ref: 1.0                    # Reference distance for path loss
+    path_loss_exponent: 2.7       # Path loss exponent
+    # CAM generation parameters
+    gen_cam_min: 0.1              # seconds - Minimum interval
+    gen_cam_max: 1.0              # seconds - Maximum interval
+    fixed_rate: false             # Generate based on conditions, not every tick
+    # Noise parameters (optional)
+    noise_vel_stddev_x: 0.0
+    noise_accel_stddev_x: 0.0
+    noise_yawrate_stddev: 0.0
+
+  # V2X Custom Sensor template
+  v2x_custom_template: &v2x_custom
+    type: sensor.other.v2x_custom
+    transmit_power: 21.5
+    receiver_sensitivity: -99.0
+    frequency_ghz: 5.9
+    filter_distance: 500
+    path_loss_model: geometric
+    scenario: urban
+    combined_antenna_gain: 10.0
+
+  # RGB Camera template
+  rgb_camera_template: &rgb_camera
+    type: sensor.camera.rgb
+    image_size_x: 800
+    image_size_y: 600
+    fov: 90.0
+
+  # LiDAR template
+  lidar_template: &lidar
+    type: sensor.lidar.ray_cast
+    range: 50
+    channels: 32
+    points_per_second: 600000
+    upper_fov: 15
+    lower_fov: -25
+    rotation_frequency: 20
+
+# ============================================================================
+# Vehicle and Sensor Actors
+# ============================================================================
+actors:
+  # Primary ego vehicle with V2X sensor
+  - type: vehicle.tesla.model3
+    name: ego_vehicle
+    spawn_point: 73
+    sensors:
+      # V2X CAM sensor
+      - <<: *v2x_cam
+        name: v2x_cam
+        spawn_point:
+          x: 0.0
+          y: 0.0
+          z: 2.0
+          roll: 0.0
+          pitch: 0.0
+          yaw: 0.0
+
+      # RGB camera for reference
+      - <<: *rgb_camera
+        name: rgb_front
+        spawn_point:
+          x: 2.0
+          y: 0.0
+          z: 1.48
+          roll: 0.0
+          pitch: 4.5
+          yaw: 0.0
+
+      # LiDAR for reference
+      - <<: *lidar
+        name: lidar
+        spawn_point:
+          x: 0.0
+          y: 0.0
+          z: 2.4
+          roll: 0.0
+          pitch: 0.0
+          yaw: 0.0
+
+  # Second vehicle with V2X (for V2V communication)
+  - type: vehicle.audi.a2
+    name: vehicle_02
+    spawn_point: 76
+    sensors:
+      - <<: *v2x_cam
+        name: v2x_cam
+        spawn_point: {x: 0.0, y: 0.0, z: 2.0, roll: 0.0, pitch: 0.0, yaw: 0.0}
+
+  # Third vehicle with V2X
+  - type: vehicle.bmw.grandtourer
+    name: vehicle_03
+    spawn_point: 68
+    sensors:
+      - <<: *v2x_cam
+        name: v2x_cam
+        spawn_point: {x: 0.0, y: 0.0, z: 2.0, roll: 0.0, pitch: 0.0, yaw: 0.0}
+
+  # Infrastructure with V2X (Road Side Unit simulation)
+  - type: infrastructure
+    name: rsu_junction
+    spawn_point:
+      x: 41
+      y: -240
+      z: 5.0
+    sensors:
+      # RSU V2X sensor
+      - <<: *v2x_cam
+        name: v2x_rsu
+        spawn_point: {x: 0.0, y: 0.0, z: 0.0, roll: 0.0, pitch: 0.0, yaw: 0.0}
+        filter_distance: 300    # RSU has shorter range
+
+# ============================================================================
+# Background Traffic Vehicles
+# Note: Background vehicles also broadcast CAM messages that can be received
+# ============================================================================
+other_vehicles:
+  count: 30                     # More vehicles = more V2X messages
+  spawn_points:
+    - 44
+    - 55
+    - 64
+    - 39
+    - 58
+    - 10
+    - 95
+    - 3

@@ -29,7 +29,9 @@ class ConfigManager:
         'sensor.lidar.ray_cast_semantic',
         'sensor.other.radar',
         'sensor.other.imu',                     # Inertial Measurement Unit
-        'sensor.other.gnss',                     # Global Navigation Satellite System
+        'sensor.other.gnss',                    # Global Navigation Satellite System
+        'sensor.other.v2x',                     # V2X CAM sensor (Cooperative Awareness Message)
+        'sensor.other.v2x_custom',              # V2X Custom message sensor
     }
 
     # Available maps in CARLA 0.9.16

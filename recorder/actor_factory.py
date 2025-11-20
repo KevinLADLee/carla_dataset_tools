@@ -20,6 +20,7 @@ from recorder.radar import Radar
 from recorder.dvs_camera import DVSCamera
 from recorder.imu import IMU
 from recorder.gnss import GNSS
+from recorder.v2x_sensor import V2XSensor, CustomV2XSensor
 from recorder.vehicle import Vehicle, OtherVehicle
 from recorder.infrastructure import Infrastructure
 from recorder.world import WorldActor
@@ -422,6 +423,18 @@ class ActorFactory(object):
                                              base_save_dir=parent_actor.get_save_dir(),
                                              carla_actor=carla_actor,
                                              parent=parent_actor)
+        elif sensor_type == 'sensor.other.v2x':
+            sensor_actor = V2XSensor(uid=self.generate_uid(),
+                                     name=sensor_name,
+                                     base_save_dir=parent_actor.get_save_dir(),
+                                     carla_actor=carla_actor,
+                                     parent=parent_actor)
+        elif sensor_type == 'sensor.other.v2x_custom':
+            sensor_actor = CustomV2XSensor(uid=self.generate_uid(),
+                                           name=sensor_name,
+                                           base_save_dir=parent_actor.get_save_dir(),
+                                           carla_actor=carla_actor,
+                                           parent=parent_actor)
         else:
             logger.error(f"Unsupported sensor type: {sensor_type}")
             raise AttributeError(f"Unsupported sensor type: {sensor_type}")
@@ -708,6 +721,22 @@ class ActorFactory(object):
             )
         elif sensor_type == "sensor.camera.optical_flow":
             sensor_object = OpticalFlowCamera(
+                uid=self.generate_uid(),
+                name=sensor_name,
+                base_save_dir=parent_vehicle.save_dir,
+                carla_actor=carla_sensor,
+                parent=parent_vehicle
+            )
+        elif sensor_type == "sensor.other.v2x":
+            sensor_object = V2XSensor(
+                uid=self.generate_uid(),
+                name=sensor_name,
+                base_save_dir=parent_vehicle.save_dir,
+                carla_actor=carla_sensor,
+                parent=parent_vehicle
+            )
+        elif sensor_type == "sensor.other.v2x_custom":
+            sensor_object = CustomV2XSensor(
                 uid=self.generate_uid(),
                 name=sensor_name,
                 base_save_dir=parent_vehicle.save_dir,
