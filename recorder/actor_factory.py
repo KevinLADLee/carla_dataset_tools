@@ -65,7 +65,8 @@ class Node(object):
     # Tick for control step, running before world.tick()
     def tick_controller(self):
         if self._node_type == NodeType.VEHICLE or \
-                self._node_type == NodeType.OTHER_VEHICLE:
+                self._node_type == NodeType.OTHER_VEHICLE or \
+                self._node_type == NodeType.INFRASTRUCTURE:
             self._actor.control_step()
 
     def tick_data_saving(self, frame_id, timestamp):
@@ -287,6 +288,23 @@ class ActorFactory(object):
                 0,
                 0,
             )
+
+        # Validate sensor configuration: Infrastructure does not support V2X CAM
+        # V2X CAM sensors automatically generate messages based on vehicle dynamics
+        # (speed, acceleration, yaw rate), which static Infrastructure cannot provide
+        if "sensors" in actor_info and actor_info["sensors"]:
+            for sensor_info in actor_info["sensors"]:
+                sensor_type = sensor_info.get("type", "")
+                if sensor_type == "sensor.other.v2x":
+                    raise RuntimeError(
+                        f"Infrastructure '{infrastructure_name}' cannot use 'sensor.other.v2x' (V2X CAM).\n\n"
+                        f"Reason: V2X CAM sensors require vehicle dynamics data (speed, acceleration, yaw rate) "
+                        f"which static Infrastructure cannot provide.\n\n"
+                        f"Solution: Use 'sensor.other.v2x_custom' instead for Infrastructure.\n\n"
+                        f"Note: Infrastructure V2X Custom sensors support one-way broadcast only (send messages). "
+                        f"For bi-directional V2X communication, use Vehicle actors."
+                    )
+
         infrastructure_object = Infrastructure(uid=self.generate_uid(),
                                                name=infrastructure_name,
                                                base_save_dir=self.base_save_dir,
@@ -452,23 +470,34 @@ class ActorFactory(object):
 
     def create_vehicle_spawn_command(self, actor_info):
         """
-        Create vehicle spawn command (不立即执行spawn)
+        Create vehicle spawn command without executing spawn.
+
+        Prepares a spawn command dictionary containing all information needed
+        for batch spawning. The command is not executed immediately; it is
+        stored for later batch execution via client.apply_batch_sync().
+
+        This method is part of the optimized batch spawning system that improves
+        initialization performance by spawning all vehicles in a single batch
+        operation instead of sequential spawning.
 
         Args:
-            actor_info: Vehicle configuration dictionary
+            actor_info: Vehicle configuration dictionary containing:
+                - type: Vehicle blueprint type (e.g., "vehicle.tesla.model3")
+                - name: Vehicle name (optional)
+                - spawn_point: Spawn point (int index or dict with x,y,z,roll,pitch,yaw)
+                - route: Route configuration (optional)
+                - sensors: List of sensor configurations (optional)
 
         Returns:
-            dict: Spawn command containing all necessary information
-            {
-                'type': 'vehicle',
-                'blueprint': carla.ActorBlueprint,
-                'transform': carla.Transform,
-                'actor_info': dict,
-                'vehicle_name': str,
-                'route_config': dict or None,
-                'use_autopilot': bool,
-                'sensors': [sensor_cmd1, sensor_cmd2, ...]
-            }
+            dict: Spawn command dictionary containing:
+                - type: 'vehicle'
+                - blueprint: carla.ActorBlueprint for the vehicle
+                - transform: carla.Transform for spawn position
+                - actor_info: Original actor configuration
+                - vehicle_name: Vehicle name
+                - route_config: Parsed route configuration (None if no route)
+                - use_autopilot: Whether to use autopilot (True if no route)
+                - sensors: List of sensor spawn commands
         """
         vehicle_type = actor_info["type"]
         vehicle_name = get_name_from_json(actor_info, self.v2x_layer_name_set)
@@ -515,14 +544,29 @@ class ActorFactory(object):
 
     def create_sensor_spawn_command(self, sensor_info, parent_vehicle_name):
         """
-        Create sensor spawn command
+        Create sensor spawn command for batch spawning.
+
+        Prepares a sensor spawn command with blueprint configuration and
+        relative transform. The command is stored for later batch execution.
+        For V2X sensors, provides detailed logging of attribute configuration.
 
         Args:
-            sensor_info: Sensor configuration dictionary
-            parent_vehicle_name: Parent vehicle name (for later association)
+            sensor_info: Sensor configuration dictionary containing:
+                - type: Sensor type (e.g., "sensor.camera.rgb")
+                - name: Sensor name
+                - spawn_point: Relative transform (dict with x,y,z,roll,pitch,yaw)
+                - <attribute>: Additional sensor-specific attributes
+            parent_vehicle_name: Parent vehicle/infrastructure name for association
 
         Returns:
-            dict: Sensor spawn command
+            dict: Sensor spawn command containing:
+                - type: 'sensor'
+                - sensor_type: Sensor type string
+                - sensor_name: Sensor name
+                - blueprint: Configured carla.ActorBlueprint
+                - transform: Relative transform (carla.Transform)
+                - parent_vehicle_name: Parent actor name
+                - sensor_info: Original sensor configuration
         """
         sensor_type = str(sensor_info.get("type"))
         sensor_name = sensor_info.get("name", "")
@@ -530,11 +574,22 @@ class ActorFactory(object):
         # Get blueprint
         blueprint = self.blueprint_lib.find(sensor_type)
 
-        # Set attributes
+        # Set attributes with detailed logging for V2X sensors
+        # V2X sensors have many configurable parameters (transmit power, frequency, etc.)
+        is_v2x_sensor = 'v2x' in sensor_type.lower()
+        if is_v2x_sensor:
+            logger.info(f"Configuring V2X sensor: {sensor_name} ({sensor_type})")
+
         for attr_key, attr_value in sensor_info.items():
             if attr_key not in ['type', 'name', 'spawn_point']:
                 if blueprint.has_attribute(attr_key):
                     blueprint.set_attribute(attr_key, str(attr_value))
+                    if is_v2x_sensor:
+                        logger.info(f"  ✓ {attr_key} = {attr_value}")
+                else:
+                    # Log unsupported attributes for V2X sensors (helps debug config issues)
+                    if is_v2x_sensor:
+                        logger.warning(f"  ❌ {attr_key} = {attr_value} (NOT SUPPORTED BY BLUEPRINT)")
 
         # Get relative transform
         spawn_point = sensor_info["spawn_point"]
@@ -559,13 +614,29 @@ class ActorFactory(object):
 
     def create_other_vehicle_spawn_commands(self, other_vehicles_info):
         """
-        Create background vehicle spawn commands (avoid duplicate spawn points)
+        Create background vehicle spawn commands for batch spawning.
+
+        Generates spawn commands for background traffic vehicles. Handles both
+        specific spawn points and random vehicle generation. Ensures no duplicate
+        spawn points are used (important for avoiding spawn conflicts).
+
+        Process:
+            1. Create commands for vehicles at specific spawn points (if provided)
+            2. Create commands for random vehicles up to specified count
+            3. Shuffle spawn points to avoid duplicates
+            4. Limit count to available spawn points
 
         Args:
-            other_vehicles_info: Dictionary with 'count' and optional 'spawn_points'
+            other_vehicles_info: Dictionary containing:
+                - count: Number of random vehicles to spawn (int)
+                - spawn_points: List of specific spawn point indices (optional)
 
         Returns:
-            list: List of spawn command dictionaries
+            list: List of spawn command dictionaries, each containing:
+                - type: 'other_vehicle'
+                - blueprint: Randomly selected vehicle blueprint
+                - transform: Spawn transform (from spawn point)
+                - use_autopilot: True (all background vehicles use autopilot)
         """
         commands = []
         blueprints = self.blueprint_lib.filter('vehicle.*')
@@ -598,6 +669,7 @@ class ActorFactory(object):
             all_spawn_points = self.world.get_map().get_spawn_points()
 
             # Limit count to available spawn points (CARLA official pattern)
+            # Each vehicle needs a unique spawn point to avoid conflicts
             if vehicle_count > len(all_spawn_points):
                 logger.warning(
                     f"Requested {vehicle_count} other_vehicles, but only "
@@ -607,6 +679,7 @@ class ActorFactory(object):
                 vehicle_count = len(all_spawn_points)
 
             # Shuffle to avoid duplicates (CARLA official pattern)
+            # This ensures random distribution while preventing spawn conflicts
             random.shuffle(all_spawn_points)
 
             # Create commands using shuffled spawn points
@@ -624,15 +697,27 @@ class ActorFactory(object):
 
     def create_sensor_object(self, sensor_cmd, carla_sensor, parent_vehicle):
         """
-        Create sensor object from command and spawned actor
+        Create sensor object from spawn command and spawned CARLA actor.
+
+        This method is called after batch spawning to create the appropriate
+        sensor wrapper object based on sensor type. The sensor object handles
+        data saving and provides a unified interface for all sensor types.
+
+        Supported sensor types:
+        - Camera: RGB, Depth, Semantic Segmentation, Instance Segmentation, DVS, Optical Flow
+        - LiDAR: Ray Cast, Semantic Ray Cast
+        - Other: Radar, IMU, GNSS, V2X (CAM and Custom)
 
         Args:
-            sensor_cmd: Sensor spawn command dictionary
-            carla_sensor: Spawned CARLA sensor actor
-            parent_vehicle: Parent vehicle object
+            sensor_cmd: Sensor spawn command dictionary (from create_sensor_spawn_command)
+            carla_sensor: Spawned CARLA sensor actor (from batch spawn response)
+            parent_vehicle: Parent actor object (Vehicle, Infrastructure, etc.)
 
         Returns:
-            Sensor object (RgbCamera, Lidar, etc.)
+            Sensor object instance (RgbCamera, Lidar, V2XSensor, etc.)
+
+        Raises:
+            AttributeError: If sensor type is not supported
         """
         sensor_type = sensor_cmd['sensor_type']
         sensor_name = sensor_cmd['sensor_name']

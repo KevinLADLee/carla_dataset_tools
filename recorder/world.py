@@ -31,8 +31,16 @@ class WorldActor(PseudoActor):
         Returns:
             dict: World objects information including counts by type
         """
-        # TODO: Save all object bbox in world
-        # Frame Timestamp CityObjectLabel carla_id location rotation box_location box_extent
+        # Note: Currently saves object labels (vehicles, pedestrians, static objects)
+        # with transform and bounding box information. The implementation covers:
+        # - Dynamic actors (vehicles, walkers) via get_actors()
+        # - Static environment objects (cars, trucks, buses, etc.) via get_environment_objects()
+        # 
+        # Future enhancement: Could add more detailed bbox information or
+        # additional object metadata if needed for specific use cases.
+        # 
+        # Current format: ObjectLabel with frame, timestamp, label_type, carla_id,
+        # transform, and bounding_box (location + extent)
         object_labels = []
 
         # Get environment objects for different vehicle types (CARLA 0.9.16 API)

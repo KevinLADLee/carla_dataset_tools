@@ -16,11 +16,19 @@ Data collection and labeling tools for [CARLA Simulator](https://carla.org/). Th
 
 ## ✨ Key Features
 
-- ✅ **Multi-Sensor Support**: RGB Camera, Semantic Segmentation, LiDAR, Semantic LiDAR, Radar
+- ✅ **Multi-Sensor Support**: RGB Camera, Semantic Segmentation, LiDAR, Semantic LiDAR, Radar, IMU, GNSS
+- ✅ **V2X Communication**: Vehicle-to-Everything (V2X) sensor support for V2V and V2I scenarios
+  - V2X CAM sensors (ETSI standard) for automatic message generation
+  - V2X Custom sensors for manual message broadcasting
+  - Realistic wireless channel modeling with path loss simulation
+- ✅ **Infrastructure Support**: Roadside unit (RSU) simulation for V2X scenarios
+  - Static infrastructure actors with sensor attachment
+  - One-way message broadcasting from infrastructure to vehicles
+  - Support for V2I (Vehicle-to-Infrastructure) communication
 - ✅ **Multiple Dataset Formats**: KITTI Object, YOLOv5, Argoverse
 - ✅ **Flexible Configuration**: YAML-based configuration with validation
 - ✅ **Route Editor**: Interactive tool for creating custom vehicle routes with topology-aware path planning
-- ✅ **Infrastructure Support**: Roadside unit (RSU) simulation for V2X scenarios
+- ✅ **BEV Map Capture**: Tool for generating bird's-eye view maps of entire CARLA maps
 - ✅ **Synchronized Recording**: Synchronized multi-vehicle and multi-sensor data collection
 - ✅ **Visualization Tools**: Built-in point cloud and data visualization utilities
 - ✅ **Autopilot Integration**: Automatic vehicle control using CARLA's traffic manager
@@ -94,6 +102,8 @@ Pre-configured profiles for different dataset styles:
 - **`argoverse`** - Argoverse-style with ring cameras
 - **`simple`** - Minimal configuration for testing
 - **`route_example`** - Demonstrates vehicle route following feature
+- **`v2x_test`** - V2X communication testing (V2V and V2I scenarios)
+- **`bev`** - Bird's-eye view camera configuration for map capture
 
 ```bash
 # List available profiles
@@ -104,6 +114,9 @@ python3 data_recorder.py --profile kitti
 
 # Create custom vehicle routes
 python3 tools/editor_route.py --map Town02 --name my_route
+
+# Capture BEV map of entire CARLA map
+python3 tools/capture_map_bev.py --map Town02 --output ./bev_output
 
 # Validate a configuration
 python3 tools/config_validate.py --profile kitti
@@ -150,6 +163,7 @@ carla_dataset_tools/
 ├── tools/                       # CLI utility scripts
 │   ├── sionna_integration/      # 🔬 Radio map generation tools (Experimental)
 │   ├── editor_route.py          # Route editor
+│   ├── capture_map_bev.py       # BEV map capture tool
 │   ├── viz_lidar.py             # LiDAR visualization
 │   └── ...                      # Other utilities
 └── data_recorder.py             # Main recording script

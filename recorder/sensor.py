@@ -42,6 +42,38 @@ class Sensor(Actor):
 
     @staticmethod
     def data_callback(weak_self, sensor_data, data_queue: queue.Queue):
+        """
+        Static callback method for CARLA sensor data.
+
+        This callback is registered with CARLA sensors via carla_actor.listen().
+        It receives sensor data asynchronously and puts it into a queue for
+        synchronous processing during save_to_disk().
+
+        For V2X sensors, provides additional logging of message counts to help
+        debug V2X communication. V2X sensors may receive multiple messages per
+        frame from different sources.
+
+        Uses weak reference to prevent circular references that could prevent
+        garbage collection.
+
+        Args:
+            weak_self: Weak reference to Sensor instance
+            sensor_data: CARLA sensor data object (type depends on sensor)
+            data_queue: Queue for storing sensor data for later processing
+        """
+        obj = weak_self()
+        if obj:
+            # Log V2X sensor callbacks with message count for debugging
+            # V2X sensors can receive multiple messages per frame from different sources
+            if 'v2x' in obj.get_type_id().lower():
+                msg_count = 0
+                try:
+                    if hasattr(sensor_data, 'get_message_count'):
+                        msg_count = sensor_data.get_message_count()
+                except:
+                    pass
+                logger.info(f"V2X callback triggered: sensor='{obj.name}', messages={msg_count}, frame={sensor_data.frame if hasattr(sensor_data, 'frame') else 'N/A'}")
+
         data_queue.put(sensor_data)
 
     def save_to_disk(self, frame_id, timestamp, debug=False):
@@ -127,7 +159,12 @@ class Sensor(Actor):
                 return result
 
             except queue.Empty:
-                # Queue timeout
+                # Queue timeout - sensor data not received within expected time
+                # This can happen if:
+                # 1. CARLA simulation is running slower than expected
+                # 2. Sensor has stopped responding (destroyed or error)
+                # 3. System I/O bottleneck preventing sensor data delivery
+                # 4. Synchronous mode timing issues
                 error_msg = (
                     f"Sensor {self.name} timeout waiting for frame {frame_id} ({SENSOR_QUEUE_TIMEOUT}s). "
                     f"Last received frame: {sensor_frame_id}. "

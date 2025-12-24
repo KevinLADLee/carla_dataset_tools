@@ -1,14 +1,42 @@
-# CARLA Dataset Recording Configuration - V2X Test Profile
+# CARLA Dataset Recording Configuration - Unified V2X Test
 # Compatible with CARLA 0.9.16
-# This configuration tests V2X (Vehicle-to-Everything) communication sensors
+#
+# This configuration provides comprehensive V2X (Vehicle-to-Everything) testing,
+# covering all communication scenarios in a single unified configuration.
+
+# ============================================================================
+# V2X Communication Test Scenarios
+# ============================================================================
+# This configuration tests all V2X communication combinations:
+#
+# 1. V2V (Vehicle-to-Vehicle):
+#    - vehicle_01 <-> vehicle_02
+#    - Both vehicles can send and receive V2X Custom messages
+#    - Distance: ~20-30 meters (medium range)
+#
+# 2. V2I/I2V (Vehicle-Infrastructure-Vehicle):
+#    - infrastructure_rsu -> vehicle_01, vehicle_02
+#    - Infrastructure sends broadcast messages (one-way only)
+#    - Distance: 10-40 meters (near to medium range)
+#
+# 3. Signal Strength Testing:
+#    - Near distance: ~10m (strong signal, -40 to -50 dBm)
+#    - Medium distance: ~30m (normal signal, -60 to -70 dBm)
+#    - Tests wireless channel model with path loss simulation
+#
+# 4. V2X Custom Sensor Features:
+#    - Manual message sending via send() API
+#    - Custom JSON message format
+#    - Real-time RSSI (Received Signal Strength Indicator)
+# ============================================================================
 
 # ============================================================================
 # Recording Settings
 # ============================================================================
 recording:
-  frame_total: 500            # Short test run
-  frame_step: 1               # Save every frame for V2X analysis
-  map: Town02                 # Urban environment for V2X testing
+  frame_total: 200            # Sufficient for comprehensive testing
+  frame_step: 1               # Save every frame for detailed V2X analysis
+  map: Town02                 # Compact urban environment
   weather: ClearNoon
 
 # ============================================================================
@@ -16,10 +44,10 @@ recording:
 # ============================================================================
 spectator:
   x: 100.0
-  y: -150.0
-  z: 150.0
+  y: 190.0
+  z: 50.0
   roll: 0.0
-  pitch: 60.0
+  pitch: -30.0
   yaw: -90.0
 
 # ============================================================================
@@ -44,143 +72,127 @@ traffic_lights:
 # Sensor Configuration Templates
 # ============================================================================
 sensor_templates:
-  # V2X CAM Sensor template
-  v2x_cam_template: &v2x_cam
-    type: sensor.other.v2x
-    # Wireless channel parameters
-    transmit_power: 21.5          # dBm - Transmission power
-    receiver_sensitivity: -99.0   # dBm - Minimum receivable power
-    frequency_ghz: 5.9            # GHz - Operating frequency (ITS-G5)
-    filter_distance: 500          # meters - Maximum reception range
-    # Path loss model
-    path_loss_model: geometric    # [geometric, winner]
-    scenario: urban               # [urban, rural, highway]
-    combined_antenna_gain: 10.0   # dBi
-    d_ref: 1.0                    # Reference distance for path loss
-    path_loss_exponent: 2.7       # Path loss exponent
-    # CAM generation parameters
-    gen_cam_min: 0.1              # seconds - Minimum interval
-    gen_cam_max: 1.0              # seconds - Maximum interval
-    fixed_rate: false             # Generate based on conditions, not every tick
-    # Noise parameters (optional)
-    noise_vel_stddev_x: 0.0
-    noise_accel_stddev_x: 0.0
-    noise_yawrate_stddev: 0.0
-
-  # V2X Custom Sensor template
+  # V2X Custom Sensor template (unified parameters)
   v2x_custom_template: &v2x_custom
     type: sensor.other.v2x_custom
-    transmit_power: 21.5
-    receiver_sensitivity: -99.0
-    frequency_ghz: 5.9
-    filter_distance: 500
-    path_loss_model: geometric
-    scenario: urban
-    combined_antenna_gain: 10.0
+    # Wireless channel parameters
+    transmit_power: 30.0              # dBm - Enhanced transmission power
+    receiver_sensitivity: -99.0       # dBm - Minimum receivable power
+    frequency_ghz: 5.9                # GHz - ITS-G5 standard frequency
+    filter_distance: 500              # meters - Maximum reception range
+    # Path loss model (geometric with urban scenario)
+    path_loss_model: geometric        # [geometric, winner]
+    scenario: urban                   # [urban, rural, highway]
+    combined_antenna_gain: 15.0       # dBi - Enhanced antenna gain
+    d_ref: 1.0                        # Reference distance for path loss
+    path_loss_exponent: 2.7           # Urban environment path loss exponent
 
-  # RGB Camera template
+  # RGB Camera template (simplified for reference)
   rgb_camera_template: &rgb_camera
     type: sensor.camera.rgb
-    image_size_x: 800
-    image_size_y: 600
+    image_size_x: 400
+    image_size_y: 300
     fov: 90.0
-
-  # LiDAR template
-  lidar_template: &lidar
-    type: sensor.lidar.ray_cast
-    range: 50
-    channels: 32
-    points_per_second: 600000
-    upper_fov: 15
-    lower_fov: -25
-    rotation_frequency: 20
 
 # ============================================================================
 # Vehicle and Sensor Actors
 # ============================================================================
 actors:
-  # Primary ego vehicle with V2X sensor
+  # ========================================================================
+  # V2V Test: Vehicle 1 (Primary)
+  # ========================================================================
   - type: vehicle.tesla.model3
-    name: ego_vehicle
-    spawn_point: 73
+    name: vehicle_01
+    spawn_point: 60               # Location: (92, 188)
     sensors:
-      # V2X CAM sensor
-      - <<: *v2x_cam
-        name: v2x_cam
-        spawn_point:
-          x: 0.0
-          y: 0.0
-          z: 2.0
-          roll: 0.0
-          pitch: 0.0
-          yaw: 0.0
+      # V2X Custom sensor (V2V + V2I receiver)
+      - <<: *v2x_custom
+        name: v2x_custom
+        spawn_point: {x: 0.0, y: 0.0, z: 2.0, roll: 0.0, pitch: 0.0, yaw: 0.0}
 
-      # RGB camera for reference
+      # RGB camera for visual reference
       - <<: *rgb_camera
         name: rgb_front
-        spawn_point:
-          x: 2.0
-          y: 0.0
-          z: 1.48
-          roll: 0.0
-          pitch: 4.5
-          yaw: 0.0
+        spawn_point: {x: 2.0, y: 0.0, z: 1.5, roll: 0.0, pitch: 0.0, yaw: 0.0}
 
-      # LiDAR for reference
-      - <<: *lidar
-        name: lidar
-        spawn_point:
-          x: 0.0
-          y: 0.0
-          z: 2.4
-          roll: 0.0
-          pitch: 0.0
-          yaw: 0.0
-
-  # Second vehicle with V2X (for V2V communication)
+  # ========================================================================
+  # V2V Test: Vehicle 2 (Secondary)
+  # ========================================================================
   - type: vehicle.audi.a2
     name: vehicle_02
-    spawn_point: 76
+    spawn_point: 76               # Near spawn_point 60 (~20-30m)
     sensors:
-      - <<: *v2x_cam
-        name: v2x_cam
+      # V2X Custom sensor (V2V + V2I receiver)
+      - <<: *v2x_custom
+        name: v2x_custom
         spawn_point: {x: 0.0, y: 0.0, z: 2.0, roll: 0.0, pitch: 0.0, yaw: 0.0}
 
-  # Third vehicle with V2X
-  - type: vehicle.bmw.grandtourer
-    name: vehicle_03
-    spawn_point: 68
-    sensors:
-      - <<: *v2x_cam
-        name: v2x_cam
-        spawn_point: {x: 0.0, y: 0.0, z: 2.0, roll: 0.0, pitch: 0.0, yaw: 0.0}
+      # RGB camera for visual reference
+      - <<: *rgb_camera
+        name: rgb_front
+        spawn_point: {x: 2.0, y: 0.0, z: 1.5, roll: 0.0, pitch: 0.0, yaw: 0.0}
 
-  # Infrastructure with V2X (Road Side Unit simulation)
+  # ========================================================================
+  # V2I/I2V Test: Infrastructure (Road Side Unit)
+  # ========================================================================
+  # IMPORTANT: Infrastructure V2X Limitations
+  # - Infrastructure ONLY supports 'sensor.other.v2x_custom' (NOT 'sensor.other.v2x')
+  # - V2X Custom on Infrastructure is ONE-WAY communication (broadcast only)
+  # - Infrastructure can send messages but CANNOT receive messages
+  # - For bi-directional V2X communication, use Vehicle actors instead
+  #
+  # Technical Reason: V2X CAM sensors require vehicle dynamics data
+  #                   (speed, acceleration, yaw rate) which static
+  #                   Infrastructure cannot provide.
+  # ========================================================================
   - type: infrastructure
-    name: rsu_junction
-    spawn_point:
-      x: 41
-      y: -240
-      z: 5.0
+    name: infrastructure_rsu
+    spawn_point: {x: 90.0, y: 180.0, z: 5.0}  # Near vehicle spawn points
     sensors:
-      # RSU V2X sensor
-      - <<: *v2x_cam
-        name: v2x_rsu
-        spawn_point: {x: 0.0, y: 0.0, z: 0.0, roll: 0.0, pitch: 0.0, yaw: 0.0}
-        filter_distance: 300    # RSU has shorter range
+      # V2X Custom sensor (broadcast only, no reception)
+      - <<: *v2x_custom
+        name: v2x_custom
+        spawn_point: {x: 0.0, y: 0.0, z: 2.0, roll: 0.0, pitch: 0.0, yaw: 0.0}
 
 # ============================================================================
 # Background Traffic Vehicles
-# Note: Background vehicles also broadcast CAM messages that can be received
+# ============================================================================
+# Purpose: Add realism to the test environment without overwhelming V2X analysis
+# Note: Background vehicles do not have V2X sensors in this test configuration
 # ============================================================================
 other_vehicles:
-  count: 30                     # More vehicles = more V2X messages
+  count: 5
   spawn_points:
     - 44
     - 55
     - 64
     - 39
     - 58
-    - 10
-    - 95
-    - 3
+
+# ============================================================================
+# Test Validation Checklist
+# ============================================================================
+# After recording, verify the following in the output data:
+#
+# 1. V2V Communication:
+#    □ vehicle_01/v2x_custom/ contains messages from vehicle_02
+#    □ vehicle_02/v2x_custom/ contains messages from vehicle_01
+#    □ Message format: {"type": "VEHICLE", "name": "vehicle_XX", "location": {...}}
+#    □ RSSI values are reasonable (~-40 to -60 dBm for 20-30m distance)
+#
+# 2. V2I Communication:
+#    □ vehicle_01/v2x_custom/ contains messages from infrastructure_rsu
+#    □ vehicle_02/v2x_custom/ contains messages from infrastructure_rsu
+#    □ Message format: {"type": "RSU", "name": "infrastructure_rsu", "location": {...}}
+#    □ RSSI values vary based on distance (vehicle_01 stronger than vehicle_02)
+#
+# 3. Infrastructure Behavior:
+#    □ infrastructure_rsu directory exists but has no V2X reception data
+#    □ Vehicles successfully receive Infrastructure broadcast messages
+#    □ Infrastructure sends messages every control step (check logs)
+#
+# 4. Signal Strength:
+#    □ Closer vehicles have stronger signals (higher RSSI)
+#    □ RSSI decreases with distance following path loss model
+#    □ All received messages have RSSI above sensitivity threshold (-99 dBm)
+# ============================================================================
