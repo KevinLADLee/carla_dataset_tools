@@ -69,7 +69,7 @@ class Radar(Sensor):
             'vertical_fov': float(self.carla_actor.attributes.get('vertical_fov', 30.0)),
             'points_per_second': int(self.carla_actor.attributes.get('points_per_second', 1500)),
             'range': float(self.carla_actor.attributes.get('range', 100.0)),
-            'data_format': 'csv_npy'  # CSV primary, NPY for compatibility
+            'data_format': 'csv'  # Single CSV format for structured radar data
         }
 
         import json
