@@ -1,0 +1,137 @@
+# CARLA Dataset Recording Configuration - Infrastructure Test Profile
+# Test configuration for infrastructure with real actor attachment
+# Compatible with CARLA 0.9.16
+
+# ============================================================================
+# Recording Settings - 录制设置
+# ============================================================================
+recording:
+  frame_total: 1000           # Short test - 短测试
+  frame_step: 10              # Save data every 10 frames - 每10帧保存一次
+  map: Town02                  # Simple map for testing - 简单地图用于测试
+  weather: ClearNoon          # Clear weather - 晴朗天气
+
+# ============================================================================
+# Spectator Camera Position - 观察者相机位置
+# ============================================================================
+spectator:
+  x: 50.0
+  y: -200.0
+  z: 50.0
+  roll: 0.0
+  pitch: 60.0
+  yaw: -90.0
+
+# ============================================================================
+# World Physics Settings - 世界物理设置
+# ============================================================================
+world_settings:
+  synchronous_mode: true
+  fixed_delta_seconds: 0.1
+  substepping: true
+  max_substep_delta_time: 0.01
+  max_substeps: 16
+
+# ============================================================================
+# Traffic Light Settings - 交通灯设置
+# ============================================================================
+traffic_lights:
+  red_time: 2.0
+  green_time: 2.0
+  yellow_time: 0.01
+
+# ============================================================================
+# Sensor Configuration Templates - 传感器配置模板
+# ============================================================================
+sensor_templates:
+  # RGB Camera template - RGB相机模板
+  rgb_camera_template: &rgb_camera
+    type: sensor.camera.rgb
+    image_size_x: 800
+    image_size_y: 600
+    fov: 90.0
+
+  # LiDAR template - 激光雷达模板
+  lidar_template: &lidar
+    type: sensor.lidar.ray_cast
+    range: 50
+    channels: 32              # Reduced for faster testing - 减少通道数以加快测试
+    points_per_second: 100000
+    upper_fov: 15
+    lower_fov: -25
+    rotation_frequency: 10
+    noise_stddev: 0.0
+
+# ============================================================================
+# Vehicle and Infrastructure Actors - 车辆和基础设施配置
+# ============================================================================
+actors:
+  # Test vehicle - 测试车辆
+  - type: vehicle.tesla.model3
+    name: test_vehicle
+    spawn_point: 73           # Spawn point index - 生成点索引
+    sensors:
+      - <<: *rgb_camera
+        name: vehicle_camera
+        spawn_point:
+          x: 2.0
+          y: 0.0
+          z: 1.48
+          roll: 0.0
+          pitch: 4.5
+          yaw: 0.0
+
+  # Infrastructure sensor (roadside unit) - 路侧单元
+  # This will spawn a real static.prop.colacan actor as attachment point
+  # 这将spawn一个真实的static.prop.colacan actor作为挂载点
+  - type: infrastructure
+    name: test_infrastructure_01
+    spawn_point:
+      x: 41.0
+      y: -240.0
+      z: 2.7
+    sensors:
+      - <<: *rgb_camera
+        name: infra_camera_front
+        spawn_point:
+          x: 0.0
+          y: 0.0
+          z: 0.0
+          roll: 0.0
+          pitch: 0.0
+          yaw: 0.0
+
+  # Another infrastructure with multiple sensors - 另一个带多个传感器的基础设施
+  - type: infrastructure
+    name: test_infrastructure_02
+    spawn_point:
+      x: 50.0
+      y: -250.0
+      z: 3.0
+    sensors:
+      - <<: *rgb_camera
+        name: infra_camera_01
+        spawn_point:
+          x: 0.0
+          y: 0.0
+          z: 0.0
+          roll: 0.0
+          pitch: -10.0
+          yaw: 0.0
+      - <<: *lidar
+        name: infra_lidar
+        spawn_point:
+          x: 0.0
+          y: 0.0
+          z: 0.0
+          roll: 0.0
+          pitch: 0.0
+          yaw: 0.0
+
+# ============================================================================
+# Background Traffic - 背景交通
+# ============================================================================
+other_vehicles:
+  count: 0                    # No background traffic for testing - 测试时不使用背景交通
+
+

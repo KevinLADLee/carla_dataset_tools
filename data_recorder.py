@@ -47,7 +47,10 @@ class DataRecorder:
         self.interrupted = True
 
     def destroy(self):
-        self.actor_tree.destroy()
+        """Cleanup ActorTree resources"""
+        if self.actor_tree is not None:
+            self.actor_tree.destroy()
+            self.actor_tree = None
 
     def set_traffic_light_time(self, traffic_light_setting):
         actor_list = self.world.get_actors()
@@ -204,88 +207,104 @@ class DataRecorder:
         self.record_name = time.strftime("%Y_%m%d_%H%M", time.localtime())
         self.base_save_dir = "{}/record_{}".format(RAW_DATA_PATH, self.record_name)
 
-        # Initialize ActorTree (spawn vehicles and sensors, autopilot not enabled yet)
-        self.actor_tree = ActorTree(self.world, config, self.base_save_dir)
-        self.actor_tree.init(self.carla_client, tm_port)
-        self.logger.info("✓ All actors spawned (autopilot not enabled yet)")
+        # Protect ActorTree initialization with try-except to prevent resource leaks
+        try:
+            # Initialize ActorTree (spawn vehicles and sensors, autopilot not enabled yet)
+            self.actor_tree = ActorTree(self.world, config, self.base_save_dir)
+            self.actor_tree.init(self.carla_client, tm_port)
+            self.logger.info("✓ All actors spawned (autopilot not enabled yet)")
 
-        # ============================================================
-        # Phase 7: Vehicle Stabilization (wait for vehicles to settle)
-        # ============================================================
-        self.logger.info("=" * 60)
-        self.logger.info("Phase 7: Vehicle stabilization...")
-        self.logger.info("=" * 60)
+            # ============================================================
+            # Phase 7: Vehicle Stabilization (wait for vehicles to settle)
+            # ============================================================
+            self.logger.info("=" * 60)
+            self.logger.info("Phase 7: Vehicle stabilization...")
+            self.logger.info("=" * 60)
 
-        # Get stabilization config
-        stabilization_config = config.get('world_settings', {}).get('vehicle_stabilization', {})
-        init_tick_num = stabilization_config.get('init_tick_num', 5)
+            # Get stabilization config
+            stabilization_config = config.get('world_settings', {}).get('vehicle_stabilization', {})
+            init_tick_num = stabilization_config.get('init_tick_num', 5)
 
-        self.logger.info(f"Ticking {init_tick_num} times for vehicles to settle on ground...")
-        for i in range(init_tick_num):
-            self.world.tick()
-            if (i + 1) % 2 == 0 or (i + 1) == init_tick_num:  # Log every 2 ticks and last tick
-                self.logger.info(f"  Stabilization tick {i + 1}/{init_tick_num}")
+            self.logger.info(f"Ticking {init_tick_num} times for vehicles to settle on ground...")
+            for i in range(init_tick_num):
+                self.world.tick()
+                if (i + 1) % 2 == 0 or (i + 1) == init_tick_num:  # Log every 2 ticks and last tick
+                    self.logger.info(f"  Stabilization tick {i + 1}/{init_tick_num}")
 
-        self.logger.info(f"✓ Stabilization complete after {init_tick_num} ticks")
+            self.logger.info(f"✓ Stabilization complete after {init_tick_num} ticks")
 
-        # ============================================================
-        # Phase 8: Enable Autopilot (after stabilization)
-        # ============================================================
-        self.logger.info("=" * 60)
-        self.logger.info("Phase 8: Enabling autopilot...")
-        self.logger.info("=" * 60)
+            # ============================================================
+            # Phase 8: Enable Autopilot (after stabilization)
+            # ============================================================
+            self.logger.info("=" * 60)
+            self.logger.info("Phase 8: Enabling autopilot...")
+            self.logger.info("=" * 60)
 
-        # Enable autopilot for all vehicles
-        autopilot_count = self.actor_tree.enable_autopilot_batch(
-            self.carla_client,
-            tm_port,
-            self.actor_tree.vehicle_nodes_map
-        )
-        self.logger.info(f"✓ Autopilot enabled for {autopilot_count} vehicles")
+            # Enable autopilot for all vehicles
+            autopilot_count = self.actor_tree.enable_autopilot_batch(
+                self.carla_client,
+                tm_port,
+                self.actor_tree.vehicle_nodes_map
+            )
+            self.logger.info(f"✓ Autopilot enabled for {autopilot_count} vehicles")
 
-        # ============================================================
-        # Phase 8.5: Clear Initialization Sensor Data
-        # ============================================================
-        self.logger.info("=" * 60)
-        self.logger.info("Phase 8.5: Clearing initialization sensor data...")
-        self.logger.info("=" * 60)
+            # ============================================================
+            # Phase 8.5: Clear Initialization Sensor Data
+            # ============================================================
+            self.logger.info("=" * 60)
+            self.logger.info("Phase 8.5: Clearing initialization sensor data...")
+            self.logger.info("=" * 60)
 
-        # Clear accumulated sensor data from initialization phase
-        # This frees memory and ensures clean state before recording
-        cleared_frames = self.actor_tree.clear_sensor_queues()
-        self.logger.info(f"✓ Cleared {cleared_frames} frames from sensor queues")
+            # Clear accumulated sensor data from initialization phase
+            # This frees memory and ensures clean state before recording
+            cleared_frames = self.actor_tree.clear_sensor_queues()
+            self.logger.info(f"✓ Cleared {cleared_frames} frames from sensor queues")
 
-        # ============================================================
-        # Phase 9: Ready to Record
-        # ============================================================
-        self.logger.info("=" * 60)
-        self.logger.info("Phase 9: Ready to record data...")
-        self.logger.info("=" * 60)
-        self.logger.info("✓ Initialization complete, starting main recording loop")
+            # ============================================================
+            # Phase 9: Ready to Record
+            # ============================================================
+            self.logger.info("=" * 60)
+            self.logger.info("Phase 9: Ready to record data...")
+            self.logger.info("=" * 60)
+            self.logger.info("✓ Initialization complete, starting main recording loop")
 
-        # ============================================================
-        # Phase 10: Set Recording Parameters
-        # ============================================================
-        self.frame_total = config['recording']['frame_total']
-        self.frame_step = config['recording']['frame_step']
-        self.config = config
+            # ============================================================
+            # Phase 10: Set Recording Parameters
+            # ============================================================
+            self.frame_total = config['recording']['frame_total']
+            self.frame_step = config['recording']['frame_step']
+            self.config = config
 
-        self.logger.info("=" * 60)
-        self.logger.info("Initialization Complete")
-        self.logger.info("=" * 60)
-        self.logger.info(f"  Recording directory: {self.base_save_dir}")
-        self.logger.info(f"  Target frames: {self.frame_total}")
-        self.logger.info(f"  Frame step: {self.frame_step}")
-        self.logger.info(f"  Actors: {len(self.actor_tree.node_list)} nodes")
-        self.logger.info("=" * 60)
+            self.logger.info("=" * 60)
+            self.logger.info("Initialization Complete")
+            self.logger.info("=" * 60)
+            self.logger.info(f"  Recording directory: {self.base_save_dir}")
+            self.logger.info(f"  Target frames: {self.frame_total}")
+            self.logger.info(f"  Frame step: {self.frame_step}")
+            self.logger.info(f"  Actors: {len(self.actor_tree.node_list)} nodes")
+            self.logger.info("=" * 60)
 
-        # Initialize IndexManager after all actors are created
-        self.logger.info("Initializing IndexManager...")
-        self.index_manager = IndexManager(
-            base_save_dir=self.base_save_dir,
-            config=config
-        )
-        self.logger.info("✓ IndexManager initialized")
+            # Initialize IndexManager after all actors are created
+            self.logger.info("Initializing IndexManager...")
+            self.index_manager = IndexManager(
+                base_save_dir=self.base_save_dir,
+                config=config
+            )
+            self.logger.info("✓ IndexManager initialized")
+
+        except Exception as e:
+            # Cleanup on initialization failure to prevent resource leaks
+            self.logger.error(f"ActorTree initialization failed: {e}")
+            if self.actor_tree is not None:
+                self.logger.info("Cleaning up ActorTree resources...")
+                try:
+                    self.actor_tree.destroy()
+                except Exception as cleanup_error:
+                    self.logger.error(f"Error during cleanup: {cleanup_error}")
+                finally:
+                    self.actor_tree = None
+            # Re-raise the exception to abort recording
+            raise
 
     def start_record(self, config):
         """

@@ -269,7 +269,14 @@ class ActorFactory(object):
 
         return other_vehicle_nodes
 
-    def create_infrastructure_node(self, actor_info):
+    def create_infrastructure_node(self, actor_info, carla_actor: carla.Actor = None):
+        """
+        Create infrastructure node (legacy mode - for create_actor_tree)
+        
+        Args:
+            actor_info: Infrastructure configuration dictionary
+            carla_actor: Optional pre-spawned CARLA actor (for batch mode)
+        """
         infrastructure_name = get_name_from_json(actor_info, self.v2x_layer_name_set)
         spawn_point = actor_info["spawn_point"]
         if type(spawn_point) is int:
@@ -283,12 +290,97 @@ class ActorFactory(object):
                 0,
                 0,
             )
+        # If carla_actor is provided (from batch spawn), use it; otherwise spawn directly (legacy)
+        if carla_actor is None:
+            # Legacy mode: spawn directly (for backward compatibility)
+            blueprint = self._get_infrastructure_attachment_blueprint()
+            if blueprint is not None:
+                try:
+                    carla_actor = self.world.spawn_actor(blueprint, transform)
+                    carla_actor.set_simulate_physics(False)
+                    carla_actor.set_enable_gravity(False)
+                except Exception as e:
+                    logger.warning(f"Failed to spawn attachment actor for infrastructure '{infrastructure_name}': {e}")
+                    carla_actor = None
+        
         infrastructure_object = Infrastructure(uid=self.generate_uid(),
                                                name=infrastructure_name,
                                                base_save_dir=self.base_save_dir,
-                                               transform=transform)
+                                               transform=transform,
+                                               carla_actor=carla_actor)
         infrastructure_node = Node(infrastructure_object, NodeType.INFRASTRUCTURE)
         return infrastructure_node
+    
+    def _get_infrastructure_attachment_blueprint(self):
+        """
+        Get blueprint for infrastructure attachment actor.
+        Returns the smallest available static prop.
+        
+        Returns:
+            carla.ActorBlueprint or None
+        """
+        # Try to find the smallest static prop (colacan - cola can)
+        blueprint = self.blueprint_lib.find('static.prop.colacan')
+        if blueprint is None:
+            # Fallback to other small props
+            blueprint = self.blueprint_lib.find('static.prop.mobile')
+            if blueprint is None:
+                blueprint = self.blueprint_lib.find('static.prop.briefcase')
+        return blueprint
+    
+    def create_infrastructure_spawn_command(self, actor_info):
+        """
+        Create infrastructure spawn command (不立即执行spawn) - for batch mode
+        
+        Args:
+            actor_info: Infrastructure configuration dictionary
+            
+        Returns:
+            dict: Spawn command containing all necessary information
+            {
+                'type': 'infrastructure',
+                'blueprint': carla.ActorBlueprint,
+                'transform': carla.Transform,
+                'actor_info': dict,
+                'infrastructure_name': str,
+                'sensors': [sensor_cmd1, sensor_cmd2, ...]
+            }
+        """
+        infrastructure_name = get_name_from_json(actor_info, self.v2x_layer_name_set)
+        spawn_point = actor_info["spawn_point"]
+        
+        if type(spawn_point) is int:
+            transform = self.spawn_points[spawn_point]
+        else:
+            transform = create_spawn_point(
+                spawn_point.pop("x", 0.0),
+                spawn_point.pop("y", 0.0),
+                spawn_point.pop("z", 0.0),
+                0,
+                0,
+                0,
+            )
+        
+        # Get blueprint for attachment actor
+        blueprint = self._get_infrastructure_attachment_blueprint()
+        if blueprint is None:
+            logger.warning(f"Could not find suitable static prop blueprint for infrastructure '{infrastructure_name}'")
+        
+        # Create sensor commands
+        sensor_commands = []
+        if "sensors" in actor_info and actor_info["sensors"]:
+            for sensor_info in actor_info["sensors"]:
+                sensor_cmd = self.create_sensor_spawn_command(sensor_info, infrastructure_name)
+                sensor_commands.append(sensor_cmd)
+        
+        return {
+            'type': 'infrastructure',
+            'blueprint': blueprint,
+            'transform': transform,
+            'actor_info': actor_info,
+            'infrastructure_name': infrastructure_name,
+            'sensors': sensor_commands
+        }
 
     def _parse_route_config(self, route_info):
         """

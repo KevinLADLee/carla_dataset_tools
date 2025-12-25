@@ -79,9 +79,11 @@ class TestActorTreeThreadPool(unittest.TestCase):
 
         actor_tree = ActorTree(self.mock_world, self.mock_config, '/tmp/test')
 
-        # Mock the thread pool methods
-        actor_tree.thread_pool.close = Mock()
-        actor_tree.thread_pool.join = Mock()
+        # Save references to mocks before destroy() sets thread_pool to None
+        mock_close = Mock()
+        mock_join = Mock()
+        actor_tree.thread_pool.close = mock_close
+        actor_tree.thread_pool.join = mock_join
 
         # Mock root.destroy
         actor_tree.root.destroy = Mock()
@@ -90,9 +92,12 @@ class TestActorTreeThreadPool(unittest.TestCase):
         actor_tree.destroy()
 
         # Verify thread pool cleanup was called
-        actor_tree.thread_pool.close.assert_called_once()
-        actor_tree.thread_pool.join.assert_called_once()
+        mock_close.assert_called_once()
+        mock_join.assert_called_once()
         actor_tree.root.destroy.assert_called_once()
+
+        # Verify thread_pool is set to None after cleanup
+        self.assertIsNone(actor_tree.thread_pool)
 
     @patch('recorder.actor_tree.ActorFactory')
     def test_destroy_handles_missing_thread_pool(self, mock_factory):

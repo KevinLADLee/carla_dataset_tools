@@ -61,14 +61,22 @@ class ActorTree(object):
         # Phase 2: Batch spawn actors (without autopilot)
         actor_responses = self.spawn_actors_batch(client, tm_port)
 
-        # Phase 3: Build actor nodes (vehicles)
-        self.vehicle_nodes_map = self.build_actor_nodes(actor_responses)
+        # Phase 3: Build actor nodes (vehicles and infrastructure)
+        actor_nodes_result = self.build_actor_nodes(actor_responses)
+        self.vehicle_nodes_map = actor_nodes_result['vehicle_nodes_map']
+        self.infrastructure_nodes_map = actor_nodes_result.get('infrastructure_nodes_map', {})
 
-        # Phase 4: Batch spawn sensors (attached to vehicles)
-        sensor_responses = self.spawn_sensors_batch(client, self.vehicle_nodes_map)
+        # Phase 4: Batch spawn sensors (attached to vehicles and infrastructure)
+        sensor_responses = self.spawn_sensors_batch(
+            client, 
+            self.vehicle_nodes_map, 
+            self.infrastructure_nodes_map
+        )
 
         # Phase 5: Build sensor nodes and attach
-        self.build_sensor_nodes(sensor_responses, self.vehicle_nodes_map)
+        # Combine both node maps for sensor node building
+        all_parent_nodes_map = {**self.vehicle_nodes_map, **self.infrastructure_nodes_map}
+        self.build_sensor_nodes(sensor_responses, all_parent_nodes_map)
 
     def prepare_spawn_commands(self):
         """
@@ -87,7 +95,7 @@ class ActorTree(object):
         )
         self.root = Node(world_actor, NodeType.WORLD)
 
-        # Collect vehicle spawn commands
+        # Collect vehicle and infrastructure spawn commands
         for actor_info in self.config["actors"]:
             actor_type = str(actor_info["type"])
 
@@ -95,8 +103,8 @@ class ActorTree(object):
                 cmd = self.actor_factory.create_vehicle_spawn_command(actor_info)
                 self.spawn_commands.append(cmd)
             elif actor_type.startswith("infrastructure"):
-                # TODO: Add infrastructure support
-                logger.warning(f"Infrastructure type not yet supported in batch mode: {actor_type}")
+                cmd = self.actor_factory.create_infrastructure_spawn_command(actor_info)
+                self.spawn_commands.append(cmd)
 
         # Collect other_vehicles spawn commands
         other_vehicle_info = self.config.get("other_vehicles", {})
@@ -123,38 +131,46 @@ class ActorTree(object):
 
         batch = []
         vehicle_cmd_indices = []  # List of (cmd_index, batch_index)
+        infrastructure_cmd_indices = []  # List of (cmd_index, batch_index)
 
-        # Build batch commands for vehicles (without autopilot)
+        # Build batch commands for vehicles and infrastructure (without autopilot)
         for cmd_idx, cmd in enumerate(self.spawn_commands):
             if cmd['type'] in ['vehicle', 'other_vehicle']:
                 batch_index = len(batch)
                 vehicle_cmd_indices.append((cmd_idx, batch_index))
-
-                # Only spawn, DO NOT enable autopilot yet
                 spawn_cmd = command.SpawnActor(cmd['blueprint'], cmd['transform'])
                 batch.append(spawn_cmd)
+            elif cmd['type'] == 'infrastructure' and cmd['blueprint'] is not None:
+                batch_index = len(batch)
+                infrastructure_cmd_indices.append((cmd_idx, batch_index))
+                spawn_cmd = command.SpawnActor(cmd['blueprint'], cmd['transform'])
+                batch.append(spawn_cmd)
+            elif cmd['type'] == 'infrastructure':
+                logger.warning(f"Infrastructure '{cmd.get('infrastructure_name', 'unknown')}' will not spawn attachment actor (no blueprint)")
 
         # Execute batch
-        logger.info(f"Spawning {len(batch)} vehicles...")
+        total_actors = len(batch)
+        logger.info(f"Spawning {total_actors} actors ({len(vehicle_cmd_indices)} vehicles, {len(infrastructure_cmd_indices)} infrastructure)...")
         responses = client.apply_batch_sync(batch, True)  # True = auto tick
 
         # Check responses
         success_count = sum(1 for r in responses if not r.error)
-        logger.info(f"✓ Spawned {success_count}/{len(responses)} vehicles")
+        logger.info(f"✓ Spawned {success_count}/{total_actors} actors")
 
         # Log failures
         for i, response in enumerate(responses):
             if response.error:
-                logger.error(f"Failed to spawn vehicle at batch index {i}: {response.error}")
+                logger.error(f"Failed to spawn actor at batch index {i}: {response.error}")
 
         return {
             'all_responses': responses,
-            'vehicle_cmd_indices': vehicle_cmd_indices
+            'vehicle_cmd_indices': vehicle_cmd_indices,
+            'infrastructure_cmd_indices': infrastructure_cmd_indices
         }
 
     def build_actor_nodes(self, spawn_result):
         """
-        Phase 3: Build actor nodes from spawn responses (vehicles only)
+        Phase 3: Build actor nodes from spawn responses (vehicles and infrastructure)
 
         Args:
             spawn_result: Result from spawn_actors_batch
@@ -165,25 +181,25 @@ class ActorTree(object):
         from recorder.vehicle import Vehicle, OtherVehicle
         from recorder.actor_factory import NodeType
 
-        logger.info("Phase 3: Building actor nodes (vehicles)...")
+        logger.info("Phase 3: Building actor nodes (vehicles and infrastructure)...")
 
         responses = spawn_result['all_responses']
         vehicle_cmd_indices = spawn_result['vehicle_cmd_indices']
+        infrastructure_cmd_indices = spawn_result.get('infrastructure_cmd_indices', [])
 
         vehicle_nodes_map = {}  # {cmd_index: vehicle_node}
+        infrastructure_nodes_map = {}  # {cmd_index: infrastructure_node}
 
+        # Build vehicle nodes
         for cmd_index, batch_index in vehicle_cmd_indices:
             response = responses[batch_index]
-
             if response.error:
                 logger.warning(f"Skipping failed vehicle spawn (cmd {cmd_index}, batch {batch_index})")
                 continue
 
-            # Get spawned vehicle actor
             carla_actor = self.world.get_actor(response.actor_id)
             cmd = self.spawn_commands[cmd_index]
 
-            # Create vehicle object
             if cmd['type'] == 'vehicle':
                 vehicle_object = Vehicle(
                     uid=self.actor_factory.generate_uid(),
@@ -193,7 +209,6 @@ class ActorTree(object):
                     route_config=cmd['route_config']
                 )
                 vehicle_node = Node(vehicle_object, NodeType.VEHICLE)
-
             elif cmd['type'] == 'other_vehicle':
                 vehicle_object = OtherVehicle(
                     uid=self.actor_factory.generate_uid(),
@@ -202,28 +217,51 @@ class ActorTree(object):
                     carla_actor=carla_actor
                 )
                 vehicle_node = Node(vehicle_object, NodeType.OTHER_VEHICLE)
+            else:
+                continue
 
-            # Save to map and add to tree
             vehicle_nodes_map[cmd_index] = vehicle_node
             self.root.add_child(vehicle_node)
             self.node_list.append(vehicle_node)
 
-        logger.info(f"✓ Built {len(vehicle_nodes_map)} vehicle nodes")
-        return vehicle_nodes_map
+        # Build infrastructure nodes
+        for cmd_index, batch_index in infrastructure_cmd_indices:
+            response = responses[batch_index]
+            if response.error:
+                logger.warning(f"Skipping failed infrastructure spawn (cmd {cmd_index}, batch {batch_index})")
+                continue
 
-    def spawn_sensors_batch(self, client, vehicle_nodes_map):
+            carla_actor = self.world.get_actor(response.actor_id)
+            cmd = self.spawn_commands[cmd_index]
+            infrastructure_node = self.actor_factory.create_infrastructure_node(
+                cmd['actor_info'],
+                carla_actor=carla_actor
+            )
+
+            infrastructure_nodes_map[cmd_index] = infrastructure_node
+            self.root.add_child(infrastructure_node)
+            self.node_list.append(infrastructure_node)
+
+        logger.info(f"✓ Built {len(vehicle_nodes_map)} vehicle nodes and {len(infrastructure_nodes_map)} infrastructure nodes")
+        return {
+            'vehicle_nodes_map': vehicle_nodes_map,
+            'infrastructure_nodes_map': infrastructure_nodes_map
+        }
+
+    def spawn_sensors_batch(self, client, vehicle_nodes_map, infrastructure_nodes_map=None):
         """
-        Phase 4: Batch spawn sensors attached to vehicles
+        Phase 4: Batch spawn sensors attached to vehicles and infrastructure
 
         Args:
             client: carla.Client instance
             vehicle_nodes_map: Map of {cmd_index: vehicle_node}
+            infrastructure_nodes_map: Map of {cmd_index: infrastructure_node}
 
         Returns:
             dict: Sensor spawn result
             {
                 'all_responses': [response1, response2, ...],
-                'sensor_info_list': [(response_idx, cmd_idx, sensor_cmd, vehicle_node), ...]
+                'sensor_info_list': [(response_idx, cmd_idx, sensor_cmd, parent_node), ...]
             }
         """
         from carla import command
@@ -233,27 +271,49 @@ class ActorTree(object):
         batch = []
         sensor_info_list = []  # Track sensor info for node building
 
-        # Build sensor batch commands
-        for cmd_idx, vehicle_node in vehicle_nodes_map.items():
+        if infrastructure_nodes_map is None:
+            infrastructure_nodes_map = {}
+
+        # Helper function to add sensors for a parent node
+        def add_sensors_for_parent(cmd_idx, parent_node, parent_actor):
+            """Add sensor spawn commands for a parent node"""
             cmd = self.spawn_commands[cmd_idx]
-
-            # Get real vehicle actor for attachment
-            vehicle_actor = vehicle_node.get_actor().carla_actor
-
-            # Add sensors for this vehicle
-            if 'sensors' in cmd and cmd['sensors']:
-                for sensor_cmd in cmd['sensors']:
-                    response_idx = len(batch)
-
-                    # Spawn sensor attached to REAL vehicle actor (not Response!)
+            if 'sensors' not in cmd or not cmd['sensors']:
+                return
+            
+            for sensor_cmd in cmd['sensors']:
+                response_idx = len(batch)
+                if parent_actor is not None:
+                    # Attach to parent actor
                     sensor_spawn_cmd = command.SpawnActor(
                         sensor_cmd['blueprint'],
                         sensor_cmd['transform'],
-                        vehicle_actor  # ✅ Real actor, not command.Response
+                        parent_actor
                     )
+                else:
+                    # Fallback: spawn to world (calculate world transform)
+                    infra_transform = cmd['transform']
+                    sensor_transform = sensor_cmd['transform']
+                    world_location = infra_transform.transform(sensor_transform.location)
+                    world_transform = carla.Transform(world_location, sensor_transform.rotation)
+                    sensor_spawn_cmd = command.SpawnActor(
+                        sensor_cmd['blueprint'],
+                        world_transform
+                    )
+                batch.append(sensor_spawn_cmd)
+                sensor_info_list.append((response_idx, cmd_idx, sensor_cmd, parent_node))
 
-                    batch.append(sensor_spawn_cmd)
-                    sensor_info_list.append((response_idx, cmd_idx, sensor_cmd, vehicle_node))
+        # Build sensor batch commands for vehicles
+        for cmd_idx, vehicle_node in vehicle_nodes_map.items():
+            add_sensors_for_parent(cmd_idx, vehicle_node, vehicle_node.get_actor().carla_actor)
+
+        # Build sensor batch commands for infrastructure
+        for cmd_idx, infrastructure_node in infrastructure_nodes_map.items():
+            cmd = self.spawn_commands[cmd_idx]
+            infrastructure_actor = infrastructure_node.get_actor().get_carla_actor()
+            if infrastructure_actor is None:
+                logger.warning(f"Infrastructure '{cmd.get('infrastructure_name', 'unknown')}' has no attachment actor, sensors will spawn to world")
+            add_sensors_for_parent(cmd_idx, infrastructure_node, infrastructure_actor)
 
         # Execute batch
         if not batch:
@@ -280,13 +340,13 @@ class ActorTree(object):
             'sensor_info_list': sensor_info_list
         }
 
-    def build_sensor_nodes(self, sensor_result, vehicle_nodes_map):
+    def build_sensor_nodes(self, sensor_result, parent_nodes_map):
         """
-        Phase 5: Build sensor nodes and attach to vehicles
+        Phase 5: Build sensor nodes and attach to parent actors (vehicles/infrastructure)
 
         Args:
             sensor_result: Result from spawn_sensors_batch
-            vehicle_nodes_map: Map of {cmd_index: vehicle_node}
+            parent_nodes_map: Map of {cmd_index: parent_node} (vehicles or infrastructure)
         """
         from recorder.actor_factory import NodeType
 
@@ -296,7 +356,7 @@ class ActorTree(object):
         sensor_info_list = sensor_result['sensor_info_list']
 
         sensor_count = 0
-        for response_idx, cmd_idx, sensor_cmd, vehicle_node in sensor_info_list:
+        for response_idx, cmd_idx, sensor_cmd, parent_node in sensor_info_list:
             response = responses[response_idx]
 
             if response.error:
@@ -306,17 +366,17 @@ class ActorTree(object):
             # Get spawned sensor actor
             carla_sensor = self.world.get_actor(response.actor_id)
 
-            # Get parent vehicle object
-            vehicle_object = vehicle_node.get_actor()
+            # Get parent actor object (vehicle or infrastructure)
+            parent_actor = parent_node.get_actor()
 
             # Create sensor object
             sensor_object = self.actor_factory.create_sensor_object(
-                sensor_cmd, carla_sensor, vehicle_object
+                sensor_cmd, carla_sensor, parent_actor
             )
 
-            # Create sensor node and attach to vehicle
+            # Create sensor node and attach to parent
             sensor_node = Node(sensor_object, NodeType.SENSOR)
-            vehicle_node.add_child(sensor_node)
+            parent_node.add_child(sensor_node)
             self.node_list.append(sensor_node)
             sensor_count += 1
 
@@ -379,14 +439,20 @@ class ActorTree(object):
     def destroy(self):
         """Cleanup resources including thread pool and actors"""
         # Cleanup thread pool first to ensure no pending tasks
-        if hasattr(self, 'thread_pool'):
+        if hasattr(self, 'thread_pool') and self.thread_pool is not None:
             logger.info("Closing thread pool...")
-            self.thread_pool.close()
-            self.thread_pool.join()
-            logger.info("Thread pool closed successfully")
+            try:
+                self.thread_pool.close()
+                self.thread_pool.join()
+                logger.info("Thread pool closed successfully")
+            except Exception as e:
+                logger.error(f"Error closing thread pool: {e}")
+            finally:
+                self.thread_pool = None
 
         # Then destroy actors
-        self.root.destroy()
+        if hasattr(self, 'root') and self.root is not None:
+            self.root.destroy()
 
     def add_node(self, node):
         self.root.add_child(node)
