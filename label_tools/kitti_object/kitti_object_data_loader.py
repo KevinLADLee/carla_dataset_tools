@@ -7,6 +7,7 @@ import sys
 import cv2
 import numpy as np
 from pathlib import Path
+from plyfile import PlyData
 
 sys.path.append(Path(__file__).parent.parent.as_posix())
 from core.transform import *
@@ -14,7 +15,7 @@ from core.transform import *
 
 def load_lidar_data(path: str):
     """Load lidar data and poses, return as a list of dictionaries."""
-    lidar_rawdata_path_list = sorted(glob.glob(f"{path}/*.npy"))
+    lidar_rawdata_path_list = sorted(glob.glob(f"{path}/*.ply"))
     lidar_rawdata_list = []
 
     # Read poses from CSV
@@ -141,7 +142,49 @@ def load_vehicle_pose(path: str) -> list:
 
 
 def read_pointcloud(path: str) -> np.array:
-    pointcloud = np.load(path)
+    """Read point cloud data from PLY file.
+
+    Args:
+        path: Path to .ply file
+
+    Returns:
+        Numpy array with point cloud data.
+        For regular lidar: (N, 4) with columns [x, y, z, intensity]
+        For semantic lidar: structured array with fields [x, y, z, CosAngle, ObjIdx, ObjTag]
+    """
+    ply_data = PlyData.read(path)
+    vertex = ply_data['vertex']
+    vertex_props = [prop.name for prop in vertex.properties]
+
+    if 'intensity' in vertex_props:
+        # Regular LiDAR format
+        pointcloud = np.column_stack([
+            vertex['x'],
+            vertex['y'],
+            vertex['z'],
+            vertex['intensity']
+        ]).astype(np.float32)
+    elif 'cos_angle' in vertex_props:
+        # Semantic LiDAR format
+        n_points = len(vertex)
+        dtype = [
+            ('x', np.float32),
+            ('y', np.float32),
+            ('z', np.float32),
+            ('CosAngle', np.float32),
+            ('ObjIdx', np.uint32),
+            ('ObjTag', np.uint32)
+        ]
+        pointcloud = np.zeros(n_points, dtype=dtype)
+        pointcloud['x'] = vertex['x']
+        pointcloud['y'] = vertex['y']
+        pointcloud['z'] = vertex['z']
+        pointcloud['CosAngle'] = vertex['cos_angle']
+        pointcloud['ObjIdx'] = vertex['obj_idx']
+        pointcloud['ObjTag'] = vertex['obj_tag']
+    else:
+        raise ValueError(f"Unknown PLY format. Properties: {vertex_props}")
+
     return pointcloud
 
 

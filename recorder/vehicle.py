@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 import copy
 import csv
+import json
 import os
 import logging
 import carla
@@ -47,8 +48,10 @@ class OtherVehicle(Actor):
     def control_step(self):
         """
         Control step for other vehicles.
-        Autopilot已在batch spawn时通过SetAutopilot命令设置，
-        Traffic Manager自动控制，无需手动操作。
+
+        Autopilot is already enabled during batch spawn via SetAutopilot command.
+        Traffic Manager automatically controls these vehicles, no manual
+        intervention needed.
         """
         pass
 
@@ -80,8 +83,31 @@ class Vehicle(Actor):
 
         # self.vehicle_agent = BehaviorAgent(self.carla_actor)
 
+        # V2X Custom sensors for message broadcasting (like Infrastructure)
+        self.v2x_custom_sensors = []
+        self._control_step_count = 0
+
     def _setup_route(self):
-        """Setup vehicle agent to follow configured route"""
+        """
+        Setup vehicle agent to follow configured route.
+
+        Configures the vehicle to follow a predefined route using waypoints.
+        Supports two modes:
+        - 'strict': Follow waypoints exactly using GlobalRoutePlanner
+        - 'disabled': Ignore route, use autopilot
+
+        Route can be loaded from file or specified inline in configuration.
+        Supports loop routes where the vehicle returns to the first waypoint.
+
+        Process:
+            1. Parse route configuration (from file or inline)
+            2. Convert waypoints to CARLA locations
+            3. Use GlobalRoutePlanner to build complete route respecting road topology
+            4. Set route plan for BasicAgent to follow
+
+        Args:
+            None (uses self.route_config set during initialization)
+        """
         if self.route_config is None:
             return
 
@@ -247,14 +273,108 @@ class Vehicle(Actor):
             raise
 
     def save_vehicle_info(self):
-        # TODO: Save vehicle physics info here
+        """
+        Save vehicle physics information to disk.
+
+        This method is intended to save static vehicle properties such as:
+        - Vehicle dimensions (length, width, height)
+        - Mass and inertia properties
+        - Wheel configuration
+        - Engine specifications
+
+        Currently not implemented. Vehicle physics info is not saved to disk.
+        This is a placeholder for future functionality.
+
+        TODO: Implement vehicle physics info saving
+        """
         pass
 
+    def register_v2x_sensor(self, v2x_sensor):
+        """
+        Register a V2X Custom sensor for message broadcasting.
+
+        Registered sensors will be used to send V2X messages during control_step().
+        Vehicles can register V2X Custom sensors for V2V (Vehicle-to-Vehicle)
+        communication. Messages are sent automatically each frame before world.tick().
+
+        Args:
+            v2x_sensor: CustomV2XSensor object with carla_actor attribute
+        """
+        self.v2x_custom_sensors.append(v2x_sensor)
+        logger.info(f"✓ Registered V2X sensor '{v2x_sensor.name}' to vehicle '{self.name}'")
+
+    def _send_v2x_messages(self):
+        """
+        Send V2X Custom messages through registered sensors.
+
+        Generates a JSON message containing vehicle position and broadcasts it
+        through all registered V2X Custom sensors. This enables V2V communication
+        where vehicles can exchange position information with nearby vehicles.
+
+        Message Format:
+            JSON string containing:
+            - type: "VEHICLE"
+            - name: Vehicle name
+            - location: {x, y, z} coordinates in CARLA world
+
+        This method is called automatically during control_step() before world.tick()
+        to ensure messages are sent at the correct timing.
+        """
+        if not self.v2x_custom_sensors:
+            return
+
+        self._control_step_count += 1
+
+        # Log every 10 calls to avoid log spam
+        if self._control_step_count % 10 == 1:
+            logger.info(f"Vehicle '{self.name}' sending V2X messages (count: {self._control_step_count})")
+
+        # Generate message with vehicle position
+        transform = self.carla_actor.get_transform()
+        location = transform.location
+        message_data = {
+            "type": "VEHICLE",
+            "name": self.name,
+            "location": {
+                "x": float(location.x),
+                "y": float(location.y),
+                "z": float(location.z)
+            }
+        }
+        message = json.dumps(message_data)
+
+        # Send through all registered V2X Custom sensors
+        for sensor in self.v2x_custom_sensors:
+            try:
+                sensor.carla_actor.send(message)
+                if self._control_step_count % 10 == 1:
+                    logger.info(f"✓ Vehicle '{self.name}' sent V2X message: {message[:60]}...")
+            except Exception as e:
+                logger.error(f"❌ Failed to send V2X message from vehicle '{self.name}': {e}")
+
     def control_step(self):
-        """Execute one control step for the vehicle"""
+        """
+        Execute one control step for the vehicle.
+
+        This method is called before world.tick() to:
+        1. Send V2X messages through registered sensors (if any)
+        2. Execute vehicle control (route following or autopilot)
+
+        Control priority:
+        - If route is configured and autopilot is disabled: use route-following agent
+        - Otherwise: rely on autopilot (set via Traffic Manager)
+
+        Args:
+            None (uses internal state: route_config, use_auto_pilot, vehicle_agent)
+        """
+        # Send V2X messages first (before world.tick)
+        self._send_v2x_messages()
+
+        # Then execute normal control
         if self.route_config is not None and not self.use_auto_pilot:
             # Using agent-based route following
             control = self.vehicle_agent.run_step()
             self.carla_actor.apply_control(control)
         else:
+            # Autopilot is handled by Traffic Manager
             pass

@@ -508,7 +508,9 @@ for i, point in enumerate(spawn_points):
 
 ### Infrastructure (V2X) Recording
 
-Include roadside sensors for V2X scenarios:
+Infrastructure actors represent static roadside units (RSUs) for V2X (Vehicle-to-Everything) communication scenarios. Infrastructure actors are virtual (not spawned as CARLA actors) but can have sensors attached.
+
+#### Basic Infrastructure Configuration
 
 ```yaml
 actors:
@@ -523,6 +525,153 @@ actors:
         name: infra_camera
         spawn_point: {x: 0.0, y: 0.0, z: 0.0}
 ```
+
+#### V2X Sensor Support
+
+Infrastructure supports V2X Custom sensors for one-way message broadcasting:
+
+```yaml
+actors:
+  - type: infrastructure
+    name: rsu_highway_1
+    spawn_point:
+      x: 100.0
+      y: -200.0
+      z: 10.0
+    sensors:
+      - type: sensor.other.v2x_custom
+        name: v2x_broadcast
+        spawn_point: {x: 0.0, y: 0.0, z: 5.0}
+        transmit_power: 30.0
+        receiver_sensitivity: -99.0
+        frequency_ghz: 5.9
+        filter_distance: 500
+        path_loss_model: geometric
+        scenario: urban
+```
+
+**Important Limitations:**
+- Infrastructure does **NOT** support `sensor.other.v2x` (V2X CAM) sensors
+- V2X CAM requires vehicle dynamics (speed, acceleration) which Infrastructure cannot provide
+- Only `sensor.other.v2x_custom` is supported for Infrastructure
+- Infrastructure V2X is **one-way only** (can send but not receive messages)
+
+#### V2X Sensor Types
+
+**1. V2X CAM (`sensor.other.v2x`)**
+- ETSI standard Cooperative Awareness Message sensor
+- Automatically generates messages based on vehicle dynamics
+- Requires: speed, acceleration, yaw rate (vehicles only)
+- Use case: Standard V2V communication following ETSI protocols
+
+**2. V2X Custom (`sensor.other.v2x_custom`)**
+- Custom message sensor for arbitrary string messages
+- Manual message sending via `send()` API
+- Supports both vehicles and infrastructure
+- Use case: Custom V2X protocols, infrastructure broadcasting
+
+#### V2X Communication Scenarios
+
+**V2V (Vehicle-to-Vehicle):**
+```yaml
+actors:
+  - type: vehicle.tesla.model3
+    name: vehicle_01
+    spawn_point: 60
+    sensors:
+      - type: sensor.other.v2x_custom
+        name: v2x_custom
+        spawn_point: {x: 0.0, y: 0.0, z: 2.0}
+  
+  - type: vehicle.audi.a2
+    name: vehicle_02
+    spawn_point: 76
+    sensors:
+      - type: sensor.other.v2x_custom
+        name: v2x_custom
+        spawn_point: {x: 0.0, y: 0.0, z: 2.0}
+```
+
+**V2I/I2V (Vehicle-Infrastructure):**
+```yaml
+actors:
+  - type: infrastructure
+    name: rsu_intersection
+    spawn_point: {x: 100.0, y: -200.0, z: 10.0}
+    sensors:
+      - type: sensor.other.v2x_custom
+        name: v2x_broadcast
+        spawn_point: {x: 0.0, y: 0.0, z: 5.0}
+  
+  - type: vehicle.tesla.model3
+    name: ego_vehicle
+    spawn_point: 73
+    sensors:
+      - type: sensor.other.v2x_custom
+        name: v2x_receiver
+        spawn_point: {x: 0.0, y: 0.0, z: 2.0}
+```
+
+#### V2X Message Format
+
+Infrastructure generates JSON messages automatically:
+```json
+{
+  "type": "RSU",
+  "name": "rsu_intersection_1",
+  "location": {
+    "x": 100.0,
+    "y": -200.0,
+    "z": 10.0
+  }
+}
+```
+
+Vehicles generate similar messages with vehicle position:
+```json
+{
+  "type": "VEHICLE",
+  "name": "vehicle_01",
+  "location": {
+    "x": 92.0,
+    "y": 188.0,
+    "z": 0.3
+  }
+}
+```
+
+#### BEV Map Capture Tool
+
+Generate bird's-eye view (BEV) maps of entire CARLA maps:
+
+```bash
+# Capture BEV map with default settings
+python3 tools/capture_map_bev.py --map Town02 --output ./bev_output
+
+# Custom parameters
+python3 tools/capture_map_bev.py \
+  --map Town01 \
+  --output ./bev_output \
+  --height 150 \
+  --fov 60 \
+  --overlap 0.15 \
+  --resolution 2000
+```
+
+**Parameters:**
+- `--map`: CARLA map name (Town01, Town02, etc.)
+- `--output`: Output directory path
+- `--height`: Camera height in meters (default: 120)
+- `--fov`: Field of view in degrees (default: 60, lower = less distortion)
+- `--overlap`: Overlap ratio between camera tiles (default: 0.15)
+- `--resolution`: Camera resolution in pixels (default: 2000)
+
+**Output:**
+- `{map_name}_rgb.png`: RGB BEV image
+- `{map_name}_depth.png`: Depth BEV image
+- `{map_name}_depth_normalized.png`: Normalized depth grayscale
+- `{map_name}_semantic.png`: Semantic segmentation BEV image
+- `metadata.json`: Capture parameters and grid information
 
 ### Multi-Vehicle Synchronized Recording
 

@@ -142,48 +142,95 @@ class KittiObjectLabelTool:
             if occlusion < 0:
                 continue
 
-            # Transform bbox vertices to camera coordinate
+            # Get image dimensions
+            img_height, img_width = image.shape[0], image.shape[1]
+
+            # Transform bbox vertices to camera coordinate and project to 2D
             vertex_points = np.asarray(o3d_bbox.get_box_points())
-            bbox_points_2d_x = []
-            bbox_points_2d_y = []
-            # bbox_points_3d = []
+            valid_projections = []
+            visible_vertices = 0
+
             for p in vertex_points:
                 p_c = transform_lidar_point_to_cam(p, lidar_trans, cam_trans)
-                # bbox_points_3d.append(p_c)
+
+                # Check depth: skip points behind camera
+                if p_c[2] <= 0:
+                    continue
+
+                # Project to image (may return None)
                 p_uv = project_point_to_image(p_c, cam_mat)
-                bbox_points_2d_x.append(p_uv[0])
-                bbox_points_2d_y.append(p_uv[1])
+                if p_uv is None:
+                    continue
+
+                valid_projections.append(p_uv)
+
+                # Check if projection is within image bounds
+                if 0 <= p_uv[0] < img_width and 0 <= p_uv[1] < img_height:
+                    visible_vertices += 1
+
+            # Filter 1: At least 2 vertices must be visible in image
+            if visible_vertices < 2:
+                continue
+
+            # Filter 2: At least 4 valid projections required for valid bbox
+            if len(valid_projections) < 4:
+                continue
+
+            # Calculate 2D bbox from valid projections
+            bbox_points_2d_x = [p[0] for p in valid_projections]
+            bbox_points_2d_y = [p[1] for p in valid_projections]
 
             x_min = min(bbox_points_2d_x)
             x_max = max(bbox_points_2d_x)
             y_min = min(bbox_points_2d_y)
             y_max = max(bbox_points_2d_y)
+
+            # Validate bbox dimensions
+            bbox_width = x_max - x_min
+            bbox_height = y_max - y_min
+            bbox_area = bbox_width * bbox_height
+
+            # Filter 3: Bbox must have valid dimensions
+            if bbox_width <= 0 or bbox_height <= 0:
+                continue
+
+            # Filter 4: Minimum height requirement (KITTI standard: 25 pixels)
+            if bbox_height < 25:
+                continue
+
+            # Filter 5: Minimum area requirement
+            if bbox_area < 100:
+                continue
+
+            # Filter 6: Bbox must be at least partially within image bounds
+            if x_max < 0 or x_min >= img_width or y_max < 0 or y_min >= img_height:
+                continue
+
             bbox_2d = [x_min, y_min, x_max, y_max]
-            # For Debug
-            # Draw 2d bbox
-            # cv2.rectangle(image, (x_min, y_min), (x_max, y_max), color=(0, 0, 255), thickness=1)
 
-            truncated = cal_truncated(image.shape[0], image.shape[1], bbox_2d)
+            # Calculate truncation
+            truncated = cal_truncated(img_height, img_width, bbox_2d)
 
-            # Ignore backward vehicles
-            if o3d_bbox.center[0] < 0:
-                truncated = 1.0
+            # Transform bbox to camera coordinate for final checks
+            o3d_bbox_cam = bbox_to_o3d_bbox_in_target_coordinate(label, cam_trans)
 
-            o3d_bbox = bbox_to_o3d_bbox_in_target_coordinate(label, cam_trans)
+            # Filter 7: Object must be in front of camera (using z-axis in camera coordinate)
+            if o3d_bbox_cam.center[2] <= 0:
+                continue
 
             rotation_y = -math.radians(label.transform.rotation.yaw - cam_trans.rotation.yaw)
             rotation_y = math.atan2(math.sin(rotation_y), math.cos(rotation_y))
 
-            bbox_center = np.asarray(o3d_bbox.center)
+            bbox_center = np.asarray(o3d_bbox_cam.center)
             theta = math.atan2(-bbox_center[0], bbox_center[2])
             alpha = rotation_y - theta
             alpha = math.atan2(math.sin(alpha), math.cos(alpha))
 
             kitti_label = generate_kitti_labels(label_type, truncated, occlusion, alpha,
-                                                bbox_2d, o3d_bbox, rotation_y)
+                                                bbox_2d, o3d_bbox_cam, rotation_y)
 
             kitti_labels.append(kitti_label)
-            bbox_list_3d.append(o3d_bbox)
+            bbox_list_3d.append(o3d_bbox_cam)
             bbox_list_2d.append(bbox_2d)
 
         # Preview each frame label result

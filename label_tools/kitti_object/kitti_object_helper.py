@@ -29,12 +29,25 @@ def transform_lidar_point_to_cam(point, lidar_trans: Transform, cam_trans: Trans
     return p_c
 
 
-def project_point_to_image(point_in_cam,
-                           cam_mat: np.array):
-    p_c = point_in_cam
-    p_c = p_c[0:3] / p_c[2]
+def project_point_to_image(point_in_cam, cam_mat: np.array):
+    """
+    Project 3D point in camera coordinate to 2D image plane.
+
+    Args:
+        point_in_cam: 3D point in camera coordinate [x, y, z, 1]
+        cam_mat: Camera intrinsic matrix (3x3)
+
+    Returns:
+        2D pixel coordinates [u, v] as numpy array, or None if point is behind camera
+    """
+    # Check depth: point must be in front of camera (z > 0)
+    if point_in_cam[2] <= 0:
+        return None
+
+    p_c = point_in_cam[0:3] / point_in_cam[2]
     p_uv = np.matmul(cam_mat, p_c)
     p_uv = p_uv[0:2].astype(int)
+
     return p_uv
 
 
@@ -74,6 +87,11 @@ def cal_truncated(image_length, image_width, bbox_2d: list) -> float:
 
     size1 = (bbox_2d_in_img[2] - bbox_2d_in_img[0]) * (bbox_2d_in_img[3] - bbox_2d_in_img[1])
     size2 = (bbox_2d[2] - bbox_2d[0]) * (bbox_2d[3] - bbox_2d[1])
+
+    # Avoid division by zero - if bbox has zero or negative area, consider it fully truncated
+    if size2 <= 0:
+        return 1.0
+
     truncated = size1 / size2
     truncated = max(truncated, 0.0)
     truncated = min(truncated, 1.0)

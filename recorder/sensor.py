@@ -9,11 +9,12 @@ import queue
 import carla
 
 from recorder.actor import Actor
+from core.csv_utils import safe_append_to_csv
 
-# 获取logger实例
+# Get logger instance
 logger = logging.getLogger(__name__)
 
-# 传感器队列超时时间（秒）
+# Sensor queue timeout in seconds
 SENSOR_QUEUE_TIMEOUT = 10.0
 
 
@@ -41,6 +42,38 @@ class Sensor(Actor):
 
     @staticmethod
     def data_callback(weak_self, sensor_data, data_queue: queue.Queue):
+        """
+        Static callback method for CARLA sensor data.
+
+        This callback is registered with CARLA sensors via carla_actor.listen().
+        It receives sensor data asynchronously and puts it into a queue for
+        synchronous processing during save_to_disk().
+
+        For V2X sensors, provides additional logging of message counts to help
+        debug V2X communication. V2X sensors may receive multiple messages per
+        frame from different sources.
+
+        Uses weak reference to prevent circular references that could prevent
+        garbage collection.
+
+        Args:
+            weak_self: Weak reference to Sensor instance
+            sensor_data: CARLA sensor data object (type depends on sensor)
+            data_queue: Queue for storing sensor data for later processing
+        """
+        obj = weak_self()
+        if obj:
+            # Log V2X sensor callbacks with message count for debugging
+            # V2X sensors can receive multiple messages per frame from different sources
+            if 'v2x' in obj.get_type_id().lower():
+                msg_count = 0
+                try:
+                    if hasattr(sensor_data, 'get_message_count'):
+                        msg_count = sensor_data.get_message_count()
+                except:
+                    pass
+                logger.info(f"V2X callback triggered: sensor='{obj.name}', messages={msg_count}, frame={sensor_data.frame if hasattr(sensor_data, 'frame') else 'N/A'}")
+
         data_queue.put(sensor_data)
 
     def save_to_disk(self, frame_id, timestamp, debug=False):
@@ -126,7 +159,12 @@ class Sensor(Actor):
                 return result
 
             except queue.Empty:
-                # Queue timeout
+                # Queue timeout - sensor data not received within expected time
+                # This can happen if:
+                # 1. CARLA simulation is running slower than expected
+                # 2. Sensor has stopped responding (destroyed or error)
+                # 3. System I/O bottleneck preventing sensor data delivery
+                # 4. Synchronous mode timing issues
                 error_msg = (
                     f"Sensor {self.name} timeout waiting for frame {frame_id} ({SENSOR_QUEUE_TIMEOUT}s). "
                     f"Last received frame: {sensor_frame_id}. "
@@ -161,17 +199,80 @@ class Sensor(Actor):
         return self._first_frame
 
     def save_pose(self, frame_id, timestamp):
+        """
+        Save sensor pose data to CSV file using unified CSV utility.
+
+        Args:
+            frame_id: CARLA frame identifier
+            timestamp: Simulation timestamp
+        """
         trans = self.get_transform()
         pose_dict = trans.to_dict()
         pose_dict.update({'frame': frame_id,
                           'timestamp': timestamp})
 
         csv_path = '{}/poses.csv'.format(self.save_dir)
-        if self.is_first_frame():
-            with open(csv_path, 'w', encoding='utf-8') as csv_file:
-                writer = csv.DictWriter(csv_file, fieldnames=self.csv_fieldnames)
-                writer.writeheader()
 
-        with open(csv_path, 'a', encoding='utf-8') as csv_file:
-            writer = csv.DictWriter(csv_file, fieldnames=self.csv_fieldnames)
-            writer.writerow(pose_dict)
+        # Use unified CSV utility with error handling
+        result = safe_append_to_csv(
+            csv_path=csv_path,
+            fieldnames=self.csv_fieldnames,
+            data=pose_dict,
+            is_first_write=self.is_first_frame(),
+            logger_name=f"{self.__class__.__name__}_{self.uid}"
+        )
+
+        # Log any errors but continue execution
+        if not result['success']:
+            logger.warning(f"Failed to save pose data: {result.get('error', 'Unknown error')}")
+
+    def save_sensor_metadata(self, save_dir, additional_metadata=None):
+        """
+        Save generic sensor metadata file
+
+        Args:
+            save_dir: Directory to save metadata
+            additional_metadata: Dictionary with additional sensor-specific metadata
+        """
+        import json
+
+        # Get parent transform for relative positioning
+        parent_transform = None
+        if hasattr(self.parent, 'get_transform'):
+            parent_transform = self.parent.get_transform().to_dict()
+
+        # Base metadata structure
+        metadata = {
+            'sensor_type': self.sensor_type,
+            'sensor_id': self.name,
+            'parent_actor': getattr(self.parent, 'name', 'unknown'),
+            'carla_blueprint': {
+                'type': self.sensor_type,
+                'attributes': dict(self.carla_actor.attributes)
+            },
+            'transform': {
+                'relative_to_parent': self.get_transform().to_dict()
+            },
+            'recording_info': {
+                'first_frame': None,  # To be filled by subclasses
+                'total_frames': None   # To be filled by subclasses
+            },
+            'data_structure': {
+                'directory': save_dir,
+                'poses_file': 'poses.csv',
+                'metadata_file': 'sensor_metadata.json'
+            }
+        }
+
+        # Add parent transform if available
+        if parent_transform:
+            metadata['parent_transform'] = parent_transform
+
+        # Add sensor-specific metadata
+        if additional_metadata:
+            metadata.update(additional_metadata)
+
+        # Save metadata file
+        metadata_path = '{}/sensor_metadata.json'.format(save_dir)
+        with open(metadata_path, 'w', encoding='utf-8') as f:
+            json.dump(metadata, f, indent=2)
