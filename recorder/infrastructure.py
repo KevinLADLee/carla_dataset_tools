@@ -66,6 +66,9 @@ class Infrastructure(PseudoActor):
 
         # Control step counter for debugging
         self._control_step_count = 0
+        
+        # Flag to track if metadata has been saved
+        self._metadata_saved = False
 
     def get_carla_transform(self):
         """
@@ -192,15 +195,77 @@ class Infrastructure(PseudoActor):
         Save infrastructure status to disk.
 
         Currently, infrastructure actors do not save persistent data to disk.
-        This method is kept for interface compatibility with the Actor base class.
+        This method saves metadata on first call and is kept for interface
+        compatibility with the Actor base class.
 
         Args:
             frame_id: Absolute CARLA frame ID
             timestamp: Simulation timestamp
             debug: If True, log debug information about the save operation
         """
+        # Save metadata on first call
+        if not self._metadata_saved:
+            self.save_infrastructure_metadata()
+            self._metadata_saved = True
+        
         if debug:
             logger.debug(f"Infrastructure status recorded: uid={self.uid} name={self.name}")
+    
+    def save_infrastructure_metadata(self):
+        """
+        Save infrastructure metadata information to disk.
+
+        Saves static infrastructure properties to infrastructure_metadata.json including:
+        - Infrastructure type
+        - Infrastructure name
+        - CARLA actor ID (null for virtual actors)
+        - UID (internal identifier)
+        - Location (transform)
+        - Creation timestamp
+
+        This metadata file is created once when the infrastructure first saves data.
+        """
+        import os
+        from datetime import datetime
+        
+        os.makedirs(self.save_dir, exist_ok=True)
+        
+        # Infrastructure is a virtual actor (no carla_actor)
+        location = self.carla_transform.location
+        rotation = self.carla_transform.rotation
+        
+        # Prepare metadata
+        metadata = {
+            'infrastructure_type': self.get_type_id(),
+            'infrastructure_name': self.name,
+            'carla_actor_id': None,  # Infrastructure is virtual, no CARLA actor
+            'is_virtual': True,
+            'uid': self.uid,
+            'location': {
+                'x': float(location.x),
+                'y': float(location.y),
+                'z': float(location.z)
+            },
+            'rotation': {
+                'roll': float(rotation.roll),
+                'pitch': float(rotation.pitch),
+                'yaw': float(rotation.yaw)
+            },
+            'created_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        }
+        
+        # Save metadata file
+        metadata_path = '{}/infrastructure_metadata.json'.format(self.save_dir)
+        try:
+            with open(metadata_path, 'w', encoding='utf-8') as f:
+                json.dump(metadata, f, indent=2, ensure_ascii=False)
+            logger.debug(f"Saved infrastructure metadata for {self.name} (virtual actor)")
+        except IOError as e:
+            logger.error(f"Failed to write infrastructure metadata to {metadata_path}: {e}")
+            raise
+        except Exception as e:
+            logger.exception(f"Unexpected error saving infrastructure metadata for {self.uid}: {e}")
+            raise
 
 
 

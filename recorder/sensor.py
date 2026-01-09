@@ -241,10 +241,14 @@ class Sensor(Actor):
         if hasattr(self.parent, 'get_transform'):
             parent_transform = self.parent.get_transform().to_dict()
 
+        # Get CARLA actor ID
+        carla_actor_id = self.get_actor_id()
+        
         # Base metadata structure
         metadata = {
             'sensor_type': self.sensor_type,
             'sensor_id': self.name,
+            'carla_actor_id': carla_actor_id,
             'parent_actor': getattr(self.parent, 'name', 'unknown'),
             'carla_blueprint': {
                 'type': self.sensor_type,

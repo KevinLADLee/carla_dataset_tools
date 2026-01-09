@@ -282,11 +282,16 @@ class OpticalFlowCamera(CameraBase):
         """Save optical flow camera metadata"""
         import json
 
+        # Get CARLA actor ID
+        carla_actor_id = self.get_actor_id()
+        
         # Get camera intrinsics
         camera_info = self.get_camera_info()
 
         metadata = {
             'sensor_type': 'sensor.camera.optical_flow',
+            'sensor_id': self.name,
+            'carla_actor_id': carla_actor_id,
             'attributes': dict(self.carla_actor.attributes),
             'data_format': 'png_16bit_packed',
             'encoding': {

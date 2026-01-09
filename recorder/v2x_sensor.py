@@ -252,8 +252,13 @@ class V2XSensor(Sensor):
 
     def save_v2x_metadata(self, save_dir):
         """Save V2X CAM sensor metadata"""
+        # Get CARLA actor ID
+        carla_actor_id = self.get_actor_id()
+        
         metadata = {
             'sensor_type': 'sensor.other.v2x',
+            'sensor_id': self.name,
+            'carla_actor_id': carla_actor_id,
             'description': 'V2X CAM (Cooperative Awareness Message) Sensor',
             'attributes': dict(self.carla_actor.attributes),
             'data_format': {
@@ -529,8 +534,13 @@ class CustomV2XSensor(Sensor):
 
     def save_custom_v2x_metadata(self, save_dir):
         """Save Custom V2X sensor metadata"""
+        # Get CARLA actor ID
+        carla_actor_id = self.get_actor_id()
+        
         metadata = {
             'sensor_type': 'sensor.other.v2x_custom',
+            'sensor_id': self.name,
+            'carla_actor_id': carla_actor_id,
             'description': 'V2X Custom Message Sensor',
             'attributes': dict(self.carla_actor.attributes),
             'data_format': {

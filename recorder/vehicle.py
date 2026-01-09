@@ -274,20 +274,45 @@ class Vehicle(Actor):
 
     def save_vehicle_info(self):
         """
-        Save vehicle physics information to disk.
+        Save vehicle metadata information to disk.
 
-        This method is intended to save static vehicle properties such as:
-        - Vehicle dimensions (length, width, height)
-        - Mass and inertia properties
-        - Wheel configuration
-        - Engine specifications
+        Saves static vehicle properties to vehicle_metadata.json including:
+        - Vehicle type (CARLA blueprint type)
+        - Vehicle name
+        - CARLA actor ID
+        - UID (internal identifier)
+        - Creation timestamp
 
-        Currently not implemented. Vehicle physics info is not saved to disk.
-        This is a placeholder for future functionality.
-
-        TODO: Implement vehicle physics info saving
+        This metadata file is created once when the vehicle first saves data.
         """
-        pass
+        from datetime import datetime
+        
+        os.makedirs(self.save_dir, exist_ok=True)
+        
+        # Get CARLA actor ID
+        carla_actor_id = self.get_actor_id()
+        
+        # Prepare metadata
+        metadata = {
+            'vehicle_type': self.vehicle_type,
+            'vehicle_name': self.name,
+            'carla_actor_id': carla_actor_id,
+            'uid': self.uid,
+            'created_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        }
+        
+        # Save metadata file
+        metadata_path = '{}/vehicle_metadata.json'.format(self.save_dir)
+        try:
+            with open(metadata_path, 'w', encoding='utf-8') as f:
+                json.dump(metadata, f, indent=2, ensure_ascii=False)
+            logger.debug(f"Saved vehicle metadata for {self.name} (CARLA ID: {carla_actor_id})")
+        except IOError as e:
+            logger.error(f"Failed to write vehicle metadata to {metadata_path}: {e}")
+            raise
+        except Exception as e:
+            logger.exception(f"Unexpected error saving vehicle metadata for {self.uid}: {e}")
+            raise
 
     def register_v2x_sensor(self, v2x_sensor):
         """

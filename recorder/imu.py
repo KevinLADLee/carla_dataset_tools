@@ -63,8 +63,13 @@ class IMU(Sensor):
         """Save IMU sensor metadata"""
         import json
 
+        # Get CARLA actor ID
+        carla_actor_id = self.get_actor_id()
+
         metadata = {
             'sensor_type': 'sensor.other.imu',
+            'sensor_id': self.name,
+            'carla_actor_id': carla_actor_id,
             'attributes': dict(self.carla_actor.attributes),
             'data_format': 'csv_unified',
             'data_fields': {
