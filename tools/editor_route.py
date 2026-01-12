@@ -15,6 +15,7 @@ import pickle
 import yaml
 import sys
 from pathlib import Path
+from collections import deque
 
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -44,16 +45,24 @@ class RouteEditor:
         # Initialize GlobalRoutePlanner for topology-aware path display
         from recorder.agents.navigation.global_route_planner import GlobalRoutePlanner
         print("Initializing route planner...")
-        self.grp = GlobalRoutePlanner(self.map, 2.0)
+        self.grp_resolution = 2.0
+        self.grp = GlobalRoutePlanner(self.map, self.grp_resolution)
         print("Route planner ready!")
 
         # Route data
         self.waypoints = []  # List of {x, y, z} dicts
         self.waypoint_circles = []  # Visual elements
+        self.waypoint_labels = []  # Visual elements (order labels)
+        self.waypoint_arrows = []  # Visual elements (direction arrows)
         self.route_lines = []  # Visual elements (reference lines)
         self.topology_lines = []  # Topology-aware route visualization
         self.selected_waypoint = None
         self.is_loop = False  # Whether this is a closed loop route
+        self.auto_route_step = 5.0
+        self.auto_graph_resolution = 2.0
+        self.auto_label_stride = 25
+        self.waypoint_marker_size = 0.8
+        self.waypoint_marker_linewidth = 1.0
 
         # Setup matplotlib
         self.fig, self.ax = plt.subplots(figsize=(14, 12), dpi=150)
@@ -80,6 +89,7 @@ class RouteEditor:
             "- Left Click: Add waypoint (allows repeats)\n"
             "- Right Click on circle: Delete waypoint\n"
             "- Ctrl+Z: Undo last waypoint\n"
+            "- G: Auto-generate rightmost-lane traversal from last waypoint\n"
             "- Enter: Save and exit\n"
             "- Escape: Cancel and exit\n"
             "\n"
@@ -165,14 +175,7 @@ class RouteEditor:
                 'z': waypoint.transform.location.z
             }
             # Always allow adding waypoint (no duplicate check)
-            self.waypoints.append(wp_dict)
-
-            # Draw waypoint circle (larger and more visible)
-            circle = Circle((wp_dict['x'], -wp_dict['y']), 3.0,
-                          color='red', linewidth=2, fill=True,
-                          alpha=0.7, zorder=10, picker=True)
-            self.ax.add_patch(circle)
-            self.waypoint_circles.append(circle)
+            self._add_waypoint_visual(wp_dict)
 
             # Update route lines (will auto-detect loop)
             self._update_route_lines()
@@ -307,7 +310,10 @@ class RouteEditor:
 
         # Remove old status text if exists
         if hasattr(self, 'status_text_obj'):
-            self.status_text_obj.remove()
+            try:
+                self.status_text_obj.remove()
+            except ValueError:
+                pass
 
         self.status_text_obj = self.ax.text(0.98, 0.02, status_text,
                                             transform=self.ax.transAxes,
@@ -347,6 +353,296 @@ class RouteEditor:
             if len(self.waypoints) > 0:
                 self._remove_waypoint(len(self.waypoints) - 1)
                 print("Undo: Removed last waypoint")
+        elif event.key == 'g':
+            if len(self.waypoints) == 0:
+                print("Click to add a start waypoint, then press G to auto-generate.")
+                return
+            start_wp = self.waypoints[-1]
+            start_loc = carla.Location(
+                x=float(start_wp['x']),
+                y=float(start_wp['y']),
+                z=float(start_wp['z'])
+            )
+            start_waypoint = self.map.get_waypoint(start_loc, project_to_road=True)
+            if start_waypoint is None:
+                print("Unable to resolve start waypoint on road.")
+                return
+            self._generate_rightmost_route(start_waypoint)
+
+    def _clear_route(self):
+        """Clear all waypoints and visuals."""
+        for circle in self.waypoint_circles:
+            circle.remove()
+        self.waypoint_circles.clear()
+        for label in self.waypoint_labels:
+            label.remove()
+        self.waypoint_labels.clear()
+        for arrows in self.waypoint_arrows:
+            try:
+                arrows.remove()
+            except ValueError:
+                pass
+        self.waypoint_arrows.clear()
+        self.waypoints.clear()
+
+        for line in self.route_lines:
+            line.remove()
+        self.route_lines.clear()
+
+        for line in self.topology_lines:
+            line.remove()
+        self.topology_lines.clear()
+
+        if hasattr(self, 'status_text_obj'):
+            try:
+                self.status_text_obj.remove()
+            except ValueError:
+                pass
+            self.status_text_obj = None
+
+    def _add_waypoint_visual(self, wp_dict, color='red', label=None, draw_circle=True):
+        """Add waypoint marker and store waypoint data."""
+        self.waypoints.append(wp_dict)
+        if draw_circle:
+            circle = Circle((wp_dict['x'], -wp_dict['y']), self.waypoint_marker_size,
+                            color=color, linewidth=self.waypoint_marker_linewidth, fill=True,
+                            alpha=0.7, zorder=10, picker=True)
+            self.ax.add_patch(circle)
+            self.waypoint_circles.append(circle)
+        if label is not None:
+            text = self.ax.text(
+                wp_dict['x'],
+                -wp_dict['y'],
+                str(label),
+                fontsize=6,
+                color='black',
+                ha='center',
+                va='center',
+                zorder=11
+            )
+            self.waypoint_labels.append(text)
+
+    def _add_waypoint_arrows(self, locations):
+        """Add direction arrows for a sequence of locations."""
+        if len(locations) < 2:
+            return
+        xs = []
+        ys = []
+        us = []
+        vs = []
+        for start, end in zip(locations[:-1], locations[1:]):
+            dx = end.x - start.x
+            dy = end.y - start.y
+            length = np.hypot(dx, dy)
+            if length < 0.5:
+                continue
+            xs.append(start.x)
+            ys.append(-start.y)
+            us.append(dx)
+            vs.append(-dy)
+
+        if not xs:
+            return
+
+        arrows = self.ax.quiver(
+            xs, ys, us, vs,
+            angles='xy', scale_units='xy', scale=1.0,
+            width=0.0025, color='red', alpha=0.8, zorder=9
+        )
+        self.waypoint_arrows.append(arrows)
+
+    def _get_rightmost_waypoint(self, waypoint):
+        """Get the rightmost reachable lane waypoint respecting lane change rules."""
+        if waypoint.lane_type != carla.LaneType.Driving:
+            return None
+        current = waypoint
+        while True:
+            right = current.get_right_lane()
+            if right is None or right.lane_type != carla.LaneType.Driving:
+                return current
+            current = right
+
+    def _get_lane_end(self, waypoint):
+        """Get the last waypoint before lane end."""
+        segment = waypoint.next_until_lane_end(self.auto_graph_resolution)
+        if segment:
+            return segment[-1]
+        return waypoint
+
+    def _build_rightmost_lane_graph(self, extra_start=None):
+        """Build a directed graph of rightmost lanes using topology."""
+        topology = self.map.get_topology()
+        nodes = {}
+        adjacency = {}
+        queue = deque()
+
+        for w0, _ in topology:
+            rm = self._get_rightmost_waypoint(w0)
+            if rm is None:
+                continue
+            if rm.id not in nodes:
+                nodes[rm.id] = rm
+                adjacency[rm.id] = set()
+                queue.append(rm.id)
+
+        if extra_start is not None:
+            rm = self._get_rightmost_waypoint(extra_start)
+            if rm is not None and rm.id not in nodes:
+                nodes[rm.id] = rm
+                adjacency[rm.id] = set()
+                queue.append(rm.id)
+
+        processed = set()
+        while queue:
+            node_id = queue.popleft()
+            if node_id in processed:
+                continue
+            processed.add(node_id)
+
+            node_wp = nodes[node_id]
+            end_wp = self._get_lane_end(node_wp)
+            next_wps = end_wp.next(self.auto_graph_resolution)
+
+            for next_wp in next_wps:
+                if next_wp.lane_type != carla.LaneType.Driving:
+                    continue
+                rm_next = self._get_rightmost_waypoint(next_wp)
+                if rm_next is None:
+                    continue
+                if rm_next.id not in nodes:
+                    nodes[rm_next.id] = rm_next
+                    adjacency[rm_next.id] = set()
+                    queue.append(rm_next.id)
+                adjacency[node_id].add(rm_next.id)
+
+        return nodes, adjacency
+
+    def _find_path_to_unvisited(self, start_id, adjacency, unvisited_edges):
+        """Find shortest directed path to any node with unvisited outgoing edges."""
+        targets = set(edge[0] for edge in unvisited_edges)
+        if not targets:
+            return None
+
+        queue = deque([(start_id, [start_id])])
+        visited = {start_id}
+
+        while queue:
+            node_id, path = queue.popleft()
+            if node_id in targets and node_id != start_id:
+                return path
+            for neighbor in adjacency.get(node_id, []):
+                if neighbor in visited:
+                    continue
+                visited.add(neighbor)
+                queue.append((neighbor, path + [neighbor]))
+        return None
+
+    def _append_location(self, route_locations, location, threshold=0.5):
+        """Append location if far enough from the last entry."""
+        if not route_locations:
+            route_locations.append(location)
+            return
+        if route_locations[-1].distance(location) > threshold:
+            route_locations.append(location)
+
+    def _append_route_segment(self, route_locations, start_wp, end_wp, max_points=3):
+        """Append a route segment using GlobalRoutePlanner sampling."""
+        start_loc = start_wp.transform.location
+        end_loc = end_wp.transform.location
+        try:
+            segment_route = self.grp.trace_route(start_loc, end_loc)
+        except Exception as e:
+            print(f"  Error computing segment: {e}")
+            segment_route = []
+
+        if not segment_route:
+            self._append_location(route_locations, start_loc)
+            self._append_location(route_locations, end_loc)
+            return
+
+        route_len = len(segment_route)
+        if max_points <= 2 or route_len <= 2:
+            self._append_location(route_locations, segment_route[0][0].transform.location)
+            self._append_location(route_locations, segment_route[-1][0].transform.location)
+            return
+
+        mid_idx = route_len // 2
+        indices = [0, mid_idx, route_len - 1]
+        for idx in indices:
+            wp = segment_route[idx][0]
+            self._append_location(route_locations, wp.transform.location)
+
+    def _generate_rightmost_route(self, start_waypoint):
+        """Generate a continuous route covering rightmost lanes with minimal repeats."""
+        print("Generating rightmost-lane traversal route...")
+        nodes, adjacency = self._build_rightmost_lane_graph(extra_start=start_waypoint)
+        start_rm = self._get_rightmost_waypoint(start_waypoint)
+
+        if start_rm is None:
+            print("Start waypoint is not on a driving lane. Route not generated.")
+            return
+
+        unvisited_edges = set()
+        for node_id, next_ids in adjacency.items():
+            for next_id in next_ids:
+                unvisited_edges.add((node_id, next_id))
+
+        if not unvisited_edges:
+            print("No rightmost lane edges found. Route not generated.")
+            return
+
+        current_id = start_rm.id
+        if current_id not in nodes:
+            nodes[current_id] = start_rm
+            adjacency[current_id] = set()
+
+        route_locations = []
+        self._append_location(route_locations, start_rm.transform.location)
+
+        safety_limit = len(unvisited_edges) * 10 + 50
+        steps = 0
+
+        while unvisited_edges and steps < safety_limit:
+            steps += 1
+            outgoing_unvisited = [
+                next_id for next_id in adjacency.get(current_id, [])
+                if (current_id, next_id) in unvisited_edges
+            ]
+
+            if outgoing_unvisited:
+                next_id = sorted(outgoing_unvisited)[0]
+                self._append_route_segment(route_locations, nodes[current_id], nodes[next_id])
+                unvisited_edges.discard((current_id, next_id))
+                current_id = next_id
+                continue
+
+            path = self._find_path_to_unvisited(current_id, adjacency, unvisited_edges)
+            if not path:
+                break
+
+            for prev_id, next_id in zip(path[:-1], path[1:]):
+                self._append_route_segment(route_locations, nodes[prev_id], nodes[next_id])
+                unvisited_edges.discard((prev_id, next_id))
+            current_id = path[-1]
+
+        if unvisited_edges:
+            print(f"Warning: {len(unvisited_edges)} rightmost-lane edges are unreachable from start.")
+
+        if len(route_locations) < 2:
+            print("Generated route is too short. Route not generated.")
+            return
+
+        self._clear_route()
+        total = len(route_locations)
+        for idx, loc in enumerate(route_locations):
+            wp_dict = {'x': loc.x, 'y': loc.y, 'z': loc.z}
+            label = idx if idx % self.auto_label_stride == 0 else None
+            self._add_waypoint_visual(wp_dict, color='red', label=label, draw_circle=False)
+
+        self._add_waypoint_arrows(route_locations)
+
+        self._update_route_lines()
+        self.fig.canvas.draw_idle()
 
     def _save_and_exit(self):
         """Save the route and exit"""
