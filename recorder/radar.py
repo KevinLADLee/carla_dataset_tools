@@ -62,8 +62,13 @@ class Radar(Sensor):
 
     def save_radar_metadata(self, save_dir):
         """Save radar sensor metadata"""
+        # Get CARLA actor ID
+        carla_actor_id = self.get_actor_id()
+        
         metadata = {
             'sensor_type': 'sensor.other.radar',
+            'sensor_id': self.name,
+            'carla_actor_id': carla_actor_id,
             'attributes': dict(self.carla_actor.attributes),
             'horizontal_fov': float(self.carla_actor.attributes.get('horizontal_fov', 30.0)),
             'vertical_fov': float(self.carla_actor.attributes.get('vertical_fov', 30.0)),

@@ -1,0 +1,104 @@
+# CARLA Dataset Recording Configuration - Cosmos Profile
+# Compatible with CARLA 0.9.16
+# Configuration for front-view RGB and Semantic Segmentation cameras
+# Suitable for generating datasets with semantic labels
+
+# ============================================================================
+# Recording Settings - 录制设置
+# ============================================================================
+recording:
+  frame_total: 5000           # Total frames to record - 总帧数
+  frame_step: 1              # Save every frame - 保存每一帧
+  map: Town03                 # CARLA map - Town03
+  weather: ClearNoon         # Weather preset (optional): ClearNoon, CloudyNoon, WetNoon, HardRainNoon, etc.
+
+# ============================================================================
+# Spectator Camera Position - 观察者相机位置
+# ============================================================================
+spectator:
+  x: 100.0
+  y: 0.0
+  z: 150.0
+  roll: 0.0
+  pitch: 60.0
+  yaw: 0.0
+
+# ============================================================================
+# World Physics Settings - 世界物理设置
+# ============================================================================
+world_settings:
+  synchronous_mode: true
+  fixed_delta_seconds: 0.1    # Standard time step - 标准时间步长
+  substepping: true
+  max_substep_delta_time: 0.005
+  max_substeps: 20
+
+  # Vehicle stabilization settings - 车辆稳定设置
+  # After spawning, wait for vehicles to settle on ground before enabling autopilot
+  vehicle_stabilization:
+    init_tick_num: 5
+
+# ============================================================================
+# Traffic Light Settings - 交通灯设置
+# ============================================================================
+traffic_lights:
+  red_time: 3.0
+  green_time: 3.0
+  yellow_time: 1.0
+
+# ============================================================================
+# Front View Sensor Templates - 前视角传感器模板
+# ============================================================================
+sensor_templates:
+  # Front RGB Camera - 前视角RGB相机
+  front_rgb_camera: &front_rgb_camera
+    type: sensor.camera.rgb
+    image_size_x: 1920        # High resolution for better quality - 高分辨率以获得更好质量
+    image_size_y: 1080
+    fov: 90.0
+
+  # Front Semantic Segmentation Camera - 前视角语义分割相机
+  front_semantic_camera: &front_semantic_camera
+    type: sensor.camera.semantic_segmentation
+    image_size_x: 1920         # Match RGB camera resolution - 匹配RGB相机分辨率
+    image_size_y: 1080
+    fov: 90.0
+
+# ============================================================================
+# Ego Vehicle Configuration - 自车配置
+# ============================================================================
+actors:
+  # Primary ego vehicle with front-view cameras - 主要自车，配备前视角相机
+  - type: vehicle.tesla.model3
+    name: ego_vehicle
+    spawn_point: 1             # Spawn point index - 生成点索引
+    sensors:
+      # Front RGB Camera - 前视角RGB相机
+      - <<: *front_rgb_camera
+        name: rgb_front
+        spawn_point:
+          x: 2.0               # Forward position - 前向位置
+          y: 0.0               # Center - 中心
+          z: 1.5               # Camera height - 相机高度
+          roll: 0.0
+          pitch: 0.0           # Horizontal view - 水平视角
+          yaw: 0.0             # Forward direction - 前向方向
+
+      # Front Semantic Segmentation Camera - 前视角语义分割相机
+      - <<: *front_semantic_camera
+        name: semantic_front
+        spawn_point:
+          x: 2.0               # Same position as RGB camera - 与RGB相机相同位置
+          y: 0.0
+          z: 1.5
+          roll: 0.0
+          pitch: 0.0
+          yaw: 0.0
+
+# ============================================================================
+# Background Traffic - 背景交通
+# ============================================================================
+other_vehicles:
+  count: 35                    # 30-40 vehicles for moderate traffic - 30-40辆车，中等交通密度
+  spawn_points: []             # Random spawn points - 随机生成点
+
